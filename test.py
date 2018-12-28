@@ -5,7 +5,7 @@ from keras.utils import plot_model
 import os
 
 DATASET_NAME = 'eye'
-WEIGHT_NAME = "unet_eye-10"
+WEIGHT_NAME = "unet_eye-13"
 TEST_SET = "test"
 SAVE_NAME = "test-predicted-rgb"
 test_dir = os.path.join('data', DATASET_NAME, TEST_SET)
