@@ -2,10 +2,14 @@ from __future__ import print_function
 from keras.preprocessing.image import ImageDataGenerator
 import numpy as np 
 import os
+from os import listdir
+from os.path import isfile, join
 import glob
 import skimage.io as io
 import skimage.transform as trans
+import cv2
 
+Sclera = [0, 128, 0]
 Sky = [128,128,128]
 Building = [128,0,0]
 Pole = [192,192,128]
@@ -82,12 +86,18 @@ def trainGenerator(batch_size,train_path,image_folder,mask_folder,aug_dict,image
 
 
 
-def testGenerator(test_path,num_image = 30,target_size = (256,256),flag_multi_class = False,as_gray = True):
-    for i in range(num_image):
-        img = io.imread(os.path.join(test_path,"%d.png"%i),as_gray = as_gray)
+def testGenerator(test_path, target_size = (256,256), color='rgb'):
+    file_list = [f for f in listdir(test_path) if isfile(join(test_path, f))]
+    for file_name in file_list:
+        file_path = os.path.join(test_path, file_name)
+        if color == 'rgb':
+            imread_flag = cv2.IMREAD_COLOR
+        elif color == 'gray':
+            imread_flag = cv2.IMREAD_GRAYSCALE
+        img = cv2.imread(file_path, imread_flag)
         img = img / 255
-        img = trans.resize(img,target_size)
-        img = np.reshape(img,img.shape+(1,)) if (not flag_multi_class) else img
+        img = trans.resize(img, target_size)
+        #  img = np.reshape(img,img.shape+(1,)) if (not flag_multi_class) else img
         img = np.reshape(img,(1,)+img.shape)
         yield img
 
@@ -118,7 +128,8 @@ def labelVisualize(num_class,color_dict,img):
 
 
 
-def saveResult(save_path,npyfile,flag_multi_class = False,num_class = 2):
+def saveResult(save_path, npyfile, file_names, weights_name, flag_multi_class = False, num_class = 2):
     for i,item in enumerate(npyfile):
+        print(i, file_names[i])
         img = labelVisualize(num_class,COLOR_DICT,item) if flag_multi_class else item[:,:,0]
-        io.imsave(os.path.join(save_path,"%d_predict.png"%i),img)
+        io.imsave(os.path.join(save_path, f"{file_names[i]}-{weights_name}.png"),img)
