@@ -3,16 +3,15 @@ import csv
 from model import *
 from data import *
 
-DATASET_NAME = 'eye'
+DATASET_NAME = 'eye-grayscale'
 CONTINUED_WEIGHT = None # "14", None
-weights_name = "unet-eye-{}"
+weights_name = "unet-" + DATASET_NAME + "-{}"
 COLOR = 'grayscale' # rgb, grayscale
-loss_acc_file = f"unet-eye-{COLOR}-loss-acc.csv"
+loss_acc_file = f"unet-{DATASET_NAME}-loss-acc.csv"
 EPOCH_START = 1
 EPOCH_END = 11
 INPUT_SIZE = (256, 256)
 TARGET_SIZE = (256, 256)
-BATCH_SIZE = 1
 
 model_filename = "{}.hdf5"
 if CONTINUED_WEIGHT:
@@ -58,8 +57,8 @@ data_gen_args = dict(rotation_range=0.2,
                     zoom_range=0.05,
                     horizontal_flip=True,
                     fill_mode='nearest')
-train_gen = trainGenerator(BATCH_SIZE, training_set_dir, 'images', 'labels', data_gen_args, save_to_dir = None, image_color_mode=COLOR)
-validation_gen = trainGenerator(BATCH_SIZE, validation_set_dir, 'images', 'labels', data_gen_args, save_to_dir = None, image_color_mode=COLOR)
+train_gen = trainGenerator(num_training, training_set_dir, 'images', 'labels', data_gen_args, save_to_dir = None, image_color_mode=COLOR)
+validation_gen = trainGenerator(num_validation, validation_set_dir, 'images', 'labels', data_gen_args, save_to_dir = None, image_color_mode=COLOR)
 
 test_files = [name for name in os.listdir(test_set_dir) if os.path.isfile(os.path.join(test_set_dir, name))]
 num_test_files = len(test_files)

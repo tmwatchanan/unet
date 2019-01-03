@@ -92,12 +92,13 @@ def testGenerator(test_path, target_size = (256,256), color='rgb'):
         file_path = os.path.join(test_path, file_name)
         if color == 'rgb':
             imread_flag = cv2.IMREAD_COLOR
-        elif color == 'gray':
+        elif color == 'grayscale':
             imread_flag = cv2.IMREAD_GRAYSCALE
         img = cv2.imread(file_path, imread_flag)
         img = img / 255
         img = trans.resize(img, target_size)
         #  img = np.reshape(img,img.shape+(1,)) if (not flag_multi_class) else img
+        img = np.reshape(img,img.shape+(1,)) if color == 'grayscale' else img
         img = np.reshape(img,(1,)+img.shape)
         yield img
 
