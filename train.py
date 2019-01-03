@@ -1,17 +1,18 @@
 import os
+import csv
 from model import *
 from data import *
 
 DATASET_NAME = 'eye'
 CONTINUED_WEIGHT = None # "14", None
 weights_name = "unet-eye-{}"
-EPOCH_START = 1
-EPOCH_END = 2
-STEPS_PER_EPOCH = 500
 COLOR = 'rgb' # rgb, gray
+loss_acc_file = f"unet-eye-{COLOR}-loss-acc.csv"
+EPOCH_START = 1
+EPOCH_END = 11
 INPUT_SIZE = (256, 256)
 TARGET_SIZE = (256, 256)
-BATCH_SIZE = 2
+BATCH_SIZE = 1
 
 model_filename = "{}.hdf5"
 if CONTINUED_WEIGHT:
@@ -59,7 +60,14 @@ data_gen_args = dict(rotation_range=0.2,
                     fill_mode='nearest')
 train_gen = trainGenerator(BATCH_SIZE, training_set_dir, 'images', 'labels', data_gen_args, save_to_dir = None, image_color_mode=COLOR)
 validation_gen = trainGenerator(BATCH_SIZE, validation_set_dir, 'images', 'labels', data_gen_args, save_to_dir = None, image_color_mode=COLOR)
-test_gen = testGenerator(test_set_dir, target_size=TARGET_SIZE, color=COLOR)
+
+test_files = [name for name in os.listdir(test_set_dir) if os.path.isfile(os.path.join(test_set_dir, name))]
+num_test_files = len(test_files)
+
+loss_acc_list = []
+if not os.path.exists(loss_acc_file):
+    with open(loss_acc_file, "w") as f:
+        f.write('epoch,acc,val_acc,loss,val_loss\n')
 
 # for each epoch
 for i in range(EPOCH_START, EPOCH_END):
@@ -67,10 +75,16 @@ for i in range(EPOCH_START, EPOCH_END):
     new_weights_name = weights_name.format(str(i))
     new_weights_file = model_filename.format(new_weights_name)
     model_checkpoint = ModelCheckpoint(filepath=new_weights_file, monitor='val_acc', mode='auto', verbose=1, save_best_only=False, save_weights_only=False, period=1)
-    model.fit_generator(train_gen,steps_per_epoch=num_training,epochs=2,callbacks=[model_checkpoint], validation_data=validation_gen, validation_steps=num_validation)
+    history = model.fit_generator(train_gen,steps_per_epoch=num_training,epochs=1,callbacks=[model_checkpoint], validation_data=validation_gen, validation_steps=num_validation)
+    trained_acc = history.history['acc'][-1]
+    trained_val_acc = history.history['val_acc'][-1]
+    trained_loss = history.history['loss'][-1]
+    trained_val_loss = history.history['val_loss'][-1]
+    loss_acc = ','.join(str(e) for e in [i, trained_acc, trained_val_acc, trained_loss, trained_val_loss])
+    with open(loss_acc_file, "a") as f:
+        f.write(f"{loss_acc}\n")
     # test the model
-    test_files = [name for name in os.listdir(test_set_dir) if os.path.isfile(os.path.join(test_set_dir, name))]
-    num_test_files = len(test_files)
+    test_gen = testGenerator(test_set_dir, target_size=TARGET_SIZE, color=COLOR)
     results = model.predict_generator(test_gen, steps=num_test_files, verbose=1)
     saveResult(predicted_set_dir, results, file_names=test_files, weights_name=new_weights_name)
 
