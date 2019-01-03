@@ -6,7 +6,7 @@ from data import *
 DATASET_NAME = 'eye'
 CONTINUED_WEIGHT = None # "14", None
 weights_name = "unet-eye-{}"
-COLOR = 'rgb' # rgb, gray
+COLOR = 'grayscale' # rgb, grayscale
 loss_acc_file = f"unet-eye-{COLOR}-loss-acc.csv"
 EPOCH_START = 1
 EPOCH_END = 11
@@ -45,7 +45,7 @@ for root, dirs, files in os.walk(validation_images_set_dir):
 
 if COLOR == 'rgb':
     input_size = INPUT_SIZE + (3,)
-elif COLOR == 'gray':
+elif COLOR == 'grayscale':
     input_size = INPUT_SIZE + (1,)
 model = unet(pretrained_weights=trained_weights_file, input_size=input_size) # load pretrained model
 
