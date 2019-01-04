@@ -28,17 +28,20 @@ if CONTINUED_WEIGHT:
 else:
     trained_weights_file = None
 
+weights_dir = os.path.join(dataset_path, 'weights')
 training_set_dir = os.path.join(dataset_path, 'train')
 training_images_set_dir = os.path.join(training_set_dir, 'images')
-training_labels_set_dir =os.path.join(training_set_dir, 'labels') 
-training_aug_set_dir =os.path.join(training_set_dir, 'augmentation') 
-validation_set_dir =os.path.join(dataset_path, 'validation') 
-validation_images_set_dir =os.path.join(validation_set_dir, 'images') 
-validation_labels_set_dir =os.path.join(validation_set_dir, 'labels') 
+training_labels_set_dir = os.path.join(training_set_dir, 'labels') 
+training_aug_set_dir = os.path.join(training_set_dir, 'augmentation') 
+validation_set_dir = os.path.join(dataset_path, 'validation') 
+validation_images_set_dir = os.path.join(validation_set_dir, 'images') 
+validation_labels_set_dir = os.path.join(validation_set_dir, 'labels') 
 validation_aug_set_dir = os.path.join(validation_set_dir, 'augmentation')
-test_set_dir =os.path.join(dataset_path, 'test') 
+test_set_dir = os.path.join(dataset_path, 'test') 
 predicted_set_dir = os.path.join(dataset_path, f"test-predicted-{COLOR}")
 
+if not os.path.exists(weights_dir):
+    os.makedirs(weights_dir)
 if not os.path.exists(predicted_set_dir):
     os.makedirs(predicted_set_dir)
 
@@ -80,6 +83,7 @@ for i in range(EPOCH_START, EPOCH_END):
     # train the model
     new_weights_name = weights_name.format(str(i))
     new_weights_file = model_filename.format(new_weights_name)
+    new_weights_file = os.path.join(weights_dir, new_weights_file)
     model_checkpoint = ModelCheckpoint(filepath=new_weights_file, monitor='val_acc', mode='auto', verbose=1, save_best_only=False, save_weights_only=False, period=1)
     history = model.fit_generator(train_gen,steps_per_epoch=num_training,epochs=1,callbacks=[model_checkpoint], validation_data=validation_gen, validation_steps=num_validation)
     trained_acc = history.history['acc'][-1]
