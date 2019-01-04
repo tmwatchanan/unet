@@ -21,13 +21,6 @@ if BATCH_SIZE > 10:
         print("You can change the value of BATCH_SIZE in this file")
         exit(1)
 
-model_filename = "{}.hdf5"
-if CONTINUED_WEIGHT:
-    trained_weights_name = weights_name.format(CONTINUED_WEIGHT)
-    trained_weights_file = model_filename.format(trained_weights_name)
-else:
-    trained_weights_file = None
-
 weights_dir = os.path.join(dataset_path, 'weights')
 training_set_dir = os.path.join(dataset_path, 'train')
 training_images_set_dir = os.path.join(training_set_dir, 'images')
@@ -44,6 +37,14 @@ if not os.path.exists(weights_dir):
     os.makedirs(weights_dir)
 if not os.path.exists(predicted_set_dir):
     os.makedirs(predicted_set_dir)
+
+model_filename = "{}.hdf5"
+if CONTINUED_WEIGHT:
+    trained_weights_name = weights_name.format(CONTINUED_WEIGHT)
+    trained_weights_file = model_filename.format(trained_weights_name)
+    trained_weights_file = os.path.join(weights_dir, trained_weights_file)
+else:
+    trained_weights_file = None
 
 num_training = 0
 for root, dirs, files in os.walk(training_images_set_dir):
