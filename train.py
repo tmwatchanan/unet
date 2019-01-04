@@ -4,14 +4,22 @@ from model import *
 from data import *
 
 DATASET_NAME = 'eye-grayscale'
+dataset_path = os.path.join('data', DATASET_NAME)
 CONTINUED_WEIGHT = None # "14", None
 weights_name = "unet-" + DATASET_NAME + "-{}"
 COLOR = 'grayscale' # rgb, grayscale
-loss_acc_file = f"unet-{DATASET_NAME}-loss-acc.csv"
+loss_acc_file = os.path.join(dataset_path, f"unet-{DATASET_NAME}-loss-acc.csv")
 EPOCH_START = 1
 EPOCH_END = 11
 INPUT_SIZE = (256, 256)
 TARGET_SIZE = (256, 256)
+BATCH_SIZE = 10 # 10
+
+if BATCH_SIZE > 10:
+    answer = input(f"Do you want to continue using BATCH_SIZE={BATCH_SIZE} [y/n] : ")
+    if not answer or answer[0].lower() != 'y':
+        print("You can change the value of BATCH_SIZE in this file")
+        exit(1)
 
 model_filename = "{}.hdf5"
 if CONTINUED_WEIGHT:
@@ -20,17 +28,16 @@ if CONTINUED_WEIGHT:
 else:
     trained_weights_file = None
 
-data_set_di = f"data/{DATASET_NAME}/dataset"
-training_set_dir = f"data/{DATASET_NAME}/train"
-training_images_set_dir = f"{training_set_dir}/images"
-training_labels_set_dir = f"{training_set_dir}/labels"
-training_aug_set_dir = f"{training_set_dir}/augmentation"
-validation_set_dir = f"data/{DATASET_NAME}/validation"
-validation_images_set_dir = f"{validation_set_dir}/images"
-validation_labels_set_dir = f"{validation_set_dir}/labels"
-validation_aug_set_dir = f"{validation_set_dir}/augmentation"
-test_set_dir = f"data/{DATASET_NAME}/test"
-predicted_set_dir = f"data/{DATASET_NAME}/test-predicted-{COLOR}"
+training_set_dir = os.path.join(dataset_path, 'train')
+training_images_set_dir = os.path.join(training_set_dir, 'images')
+training_labels_set_dir =os.path.join(training_set_dir, 'labels') 
+training_aug_set_dir =os.path.join(training_set_dir, 'augmentation') 
+validation_set_dir =os.path.join(dataset_path, 'validation') 
+validation_images_set_dir =os.path.join(validation_set_dir, 'images') 
+validation_labels_set_dir =os.path.join(validation_set_dir, 'labels') 
+validation_aug_set_dir = os.path.join(validation_set_dir, 'augmentation')
+test_set_dir =os.path.join(dataset_path, 'test') 
+predicted_set_dir = os.path.join(dataset_path, f"test-predicted-{COLOR}")
 
 if not os.path.exists(predicted_set_dir):
     os.makedirs(predicted_set_dir)
@@ -57,8 +64,8 @@ data_gen_args = dict(rotation_range=0.2,
                     zoom_range=0.05,
                     horizontal_flip=True,
                     fill_mode='nearest')
-train_gen = trainGenerator(num_training, training_set_dir, 'images', 'labels', data_gen_args, save_to_dir = None, image_color_mode=COLOR)
-validation_gen = trainGenerator(num_validation, validation_set_dir, 'images', 'labels', data_gen_args, save_to_dir = None, image_color_mode=COLOR)
+train_gen = trainGenerator(BATCH_SIZE, training_set_dir, 'images', 'labels', data_gen_args, save_to_dir = None, image_color_mode=COLOR)
+validation_gen = trainGenerator(BATCH_SIZE, validation_set_dir, 'images', 'labels', data_gen_args, save_to_dir = None, image_color_mode=COLOR)
 
 test_files = [name for name in os.listdir(test_set_dir) if os.path.isfile(os.path.join(test_set_dir, name))]
 num_test_files = len(test_files)
@@ -85,6 +92,8 @@ for i in range(EPOCH_START, EPOCH_END):
     # test the model
     test_gen = testGenerator(test_set_dir, target_size=TARGET_SIZE, color=COLOR)
     results = model.predict_generator(test_gen, steps=num_test_files, verbose=1)
+    print(test_files)
+    print(new_weights_name)
     saveResult(predicted_set_dir, results, file_names=test_files, weights_name=new_weights_name)
 
 #  imgs_train,imgs_mask_train = geneTrainNpy("data/" + DATASET_NAME + "/train/aug/","data/" + DATASET_NAME + "/train/aug/")
