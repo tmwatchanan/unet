@@ -1,7 +1,12 @@
+import os
 import csv
 import matplotlib.pyplot as plt
 
-LOSS_ACC_FILE = 'unet-eye-loss-acc.csv'
+DATASET_NAME = "eye"
+DATASET_PATH = os.path.join('data', DATASET_NAME)
+LOSS_ACC_FILE = os.path.join(DATASET_PATH, f"unet-{DATASET_NAME}-loss-acc.csv")
+fig_acc_file = os.path.join(DATASET_PATH, f"unet-{DATASET_NAME}-acc.png")
+fig_loss_file = os.path.join(DATASET_PATH, f"unet-{DATASET_NAME}-loss.png")
 
 epoch_list = []
 acc_list = []
@@ -25,20 +30,22 @@ with open(LOSS_ACC_FILE) as csv_file:
             val_loss_list.append(float(row[4]))
 
 # plot accuracy
-plt.figure(1)
+fig_acc = plt.figure(1)
 plt.plot(epoch_list, acc_list, 'b')
 plt.plot(epoch_list, val_acc_list, 'g')
 plt.title('Model Accuracy')
 plt.ylabel('Accuracy')
 plt.xlabel('Epoch')
 plt.legend(['Train Accuracy', 'Validation Accuracy'], loc='upper left')
+fig_acc.savefig(fig_acc_file)
 
 # plot loss
-plt.figure(2)
+fig_loss = plt.figure(2)
 plt.plot(epoch_list, loss_list, 'y')
 plt.plot(epoch_list, val_loss_list, 'r')
 plt.title('Model Loss')
 plt.ylabel('Loss')
 plt.xlabel('Epoch')
 plt.legend(['Train Loss', 'Validation Loss'], loc='upper left')
+fig_loss.savefig(fig_loss_file)
 plt.show()
