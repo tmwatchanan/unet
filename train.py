@@ -14,6 +14,7 @@ EPOCH_END = 11
 INPUT_SIZE = (256, 256)
 TARGET_SIZE = (256, 256)
 BATCH_SIZE = 10 # 10
+LEARNING_RATE = 1e-4
 
 if BATCH_SIZE > 10:
     answer = input(f"Do you want to continue using BATCH_SIZE={BATCH_SIZE} [y/n] : ")
@@ -57,7 +58,7 @@ if COLOR == 'rgb':
     input_size = INPUT_SIZE + (3,)
 elif COLOR == 'grayscale':
     input_size = INPUT_SIZE + (1,)
-model = unet(pretrained_weights=trained_weights_file, input_size=input_size) # load pretrained model
+model = unet(pretrained_weights=trained_weights_file, input_size=input_size, learning_rate=LEARNING_RATE) # load pretrained model
 
 #  model_file += "-{epoch:02d}-{val_acc:.2f}.hdf5"
 
