@@ -10,14 +10,14 @@ from keras.callbacks import ModelCheckpoint, LearningRateScheduler
 from keras import backend as keras
 
 
-def unet(pretrained_weights = None,input_size = (256,256,3)):
+def baseline(pretrained_weights = None, input_size = (256,256,3), learning_rate = 1e-4):
     inputs = Input(input_size)
     conv1 = Conv2D(3, 1, activation = 'sigmoid', padding = 'same', kernel_initializer = 'he_normal')(inputs)
     conv2 = Conv2D(1, 1, activation = 'sigmoid', padding = 'same', kernel_initializer = 'he_normal')(conv1)
 
     model = Model(input = inputs, output = conv2)
 
-    model.compile(optimizer = Adam(lr = 1e-4), loss = 'mean_squared_error', metrics = ['accuracy'])
+    model.compile(optimizer = Adam(lr = learning_rate), loss = 'mean_squared_error', metrics = ['accuracy'])
     
     #model.summary()
 
