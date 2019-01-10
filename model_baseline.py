@@ -27,3 +27,21 @@ def baseline(pretrained_weights = None, input_size = (256,256,3), learning_rate 
     return model
 
 
+def baseline_v2(pretrained_weights = None, input_size = (256,256,3), learning_rate = 1e-4):
+    inputs = Input(input_size)
+    conv1 = Conv2D(6, 1, activation = 'sigmoid', padding = 'same', kernel_initializer = 'he_normal')(inputs)
+    conv2 = Conv2D(6, 1, activation = 'sigmoid', padding = 'same', kernel_initializer = 'he_normal')(conv1)
+    conv3 = Conv2D(1, 1, activation = 'sigmoid', padding = 'same', kernel_initializer = 'he_normal')(conv2)
+
+    model = Model(input = inputs, output = conv3)
+
+    model.compile(optimizer = Adam(lr = learning_rate), loss = 'mean_squared_error', metrics = ['accuracy'])
+    
+    #model.summary()
+
+    if(pretrained_weights):
+    	model.load_weights(pretrained_weights)
+
+    return model
+
+
