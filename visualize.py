@@ -2,12 +2,12 @@ import os
 import csv
 import matplotlib.pyplot as plt
 
-DATASET_NAME = "eye"
-DATASET_DIR = "eye_baseline_v1"
-DATASET_PATH = os.path.join('data', DATASET_DIR)
-LOSS_ACC_FILE = os.path.join(DATASET_PATH, f"baseline_v1-{DATASET_NAME}-loss-acc.csv")
-fig_acc_file = os.path.join(DATASET_PATH, f"baseline_v1-{DATASET_NAME}-acc.png")
-fig_loss_file = os.path.join(DATASET_PATH, f"baseline_v1-{DATASET_NAME}-loss.png")
+DATASET_NAME = "multi-eye"
+DATASET_DIR_NAME = "multi-eye"
+DATASET_PATH = os.path.join('data', DATASET_NAME)
+LOSS_ACC_FILE = os.path.join(DATASET_PATH, f"{DATASET_DIR_NAME}-loss-acc.csv")
+fig_acc_file = os.path.join(DATASET_PATH, f"{DATASET_DIR_NAME}-acc.png")
+fig_loss_file = os.path.join(DATASET_PATH, f"{DATASET_DIR_NAME}-loss.png")
 
 epoch_list = []
 acc_list = []
@@ -35,8 +35,8 @@ fig_acc = plt.figure(1)
 plt.plot(epoch_list, acc_list, 'b')
 plt.plot(epoch_list, val_acc_list, 'g')
 plt.grid(color='k', linestyle='-', linewidth=1)
-plt.ylim(0.85, 0.95)
-plt.title(f"{DATASET_DIR} - Model Accuracy")
+plt.ylim(0, 1.0)
+plt.title(f"{DATASET_DIR_NAME} - Model Accuracy")
 plt.ylabel('Accuracy')
 plt.xlabel('Epoch')
 plt.legend(['Train Accuracy', 'Validation Accuracy'], loc='upper left')
@@ -47,7 +47,7 @@ fig_loss = plt.figure(2)
 plt.plot(epoch_list, loss_list, 'y')
 plt.plot(epoch_list, val_loss_list, 'r')
 plt.grid(color='k', linestyle='-', linewidth=1)
-plt.title(f"{DATASET_DIR} - Model Loss")
+plt.title(f"{DATASET_DIR_NAME} - Model Loss")
 plt.ylabel('Loss')
 plt.xlabel('Epoch')
 plt.legend(['Train Loss', 'Validation Loss'], loc='upper left')
