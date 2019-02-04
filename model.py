@@ -170,7 +170,7 @@ def unet(pretrained_weights=None, input_size=(256, 256, 3),
         padding='same',
         kernel_initializer='he_normal')(conv9)
     conv9 = Conv2D(
-        2,
+        64,
         3,
         activation='relu',
         padding='same',

@@ -3,7 +3,7 @@ from model import unet, ModelCheckpoint
 #  from model_baseline import baseline_v2_multiclass, ModelCheckpoint
 from data import trainGenerator, testGenerator, saveResult
 
-DATASET_NAME = 'eye-multiclass-unet-sigmoid-lr1e_3'
+DATASET_NAME = 'eye-multiclass-unet_v2-sigmoid-lr1e_3'
 dataset_path = os.path.join('data', DATASET_NAME)
 COLOR = 'rgb'  # rgb, grayscale
 CONTINUED_WEIGHT = None  # "14", None
@@ -11,7 +11,7 @@ weights_name = DATASET_NAME + "-{}"
 loss_acc_filename = f"{DATASET_NAME}-loss-acc.csv"
 loss_acc_file = os.path.join(dataset_path, loss_acc_filename)
 EPOCH_START = 1
-EPOCH_END = 501
+EPOCH_END = 2001
 BATCH_SIZE = 6  # 10
 STEPS_PER_EPOCH = 1  # None
 LEARNING_RATE = 1e-3
