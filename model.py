@@ -181,7 +181,7 @@ def unet(pretrained_weights=None, input_size=(256, 256, 3),
 
     model.compile(
         optimizer=Adam(lr=learning_rate),
-        loss='mean_squared_error',
+        loss='categorical_crossentropy',
         metrics=['accuracy'])
 
     # model.summary()
