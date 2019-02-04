@@ -31,8 +31,7 @@ training_set_dir = os.path.join(dataset_path, 'train')
 training_images_set_dir = os.path.join(training_set_dir, 'images')
 training_labels_set_dir = os.path.join(training_set_dir, 'labels')
 training_aug_set_dir = os.path.join(training_set_dir, 'augmentation')
-validation_set_dir = os.path.join(dataset_path, 'validation')
-validation_images_set_dir = os.path.join(validation_set_dir, 'images')
+validation_set_dir = os.path.join(dataset_path, 'validation') validation_images_set_dir = os.path.join(validation_set_dir, 'images')
 validation_labels_set_dir = os.path.join(validation_set_dir, 'labels')
 validation_aug_set_dir = os.path.join(validation_set_dir, 'augmentation')
 test_set_dir = os.path.join(dataset_path, 'test')
@@ -158,13 +157,14 @@ for i in range(EPOCH_START, EPOCH_END):
         test_gen, steps=num_test_files, verbose=1)
     print(test_files)
     print(new_weights_name)
-    saveResult(
-        predicted_set_dir,
-        results,
-        file_names=test_files,
-        weights_name=new_weights_name,
-        flag_multi_class=True,
-        num_class=NUM_CLASS)
+    if (i <= 100) or (i > 100 and i % 100 == 0):
+        saveResult(
+            predicted_set_dir,
+            results,
+            file_names=test_files,
+            weights_name=new_weights_name,
+            flag_multi_class=True,
+            num_class=NUM_CLASS)
 
 #  imgs_train,imgs_mask_train = geneTrainNpy("data/" + DATASET_NAME + "/train/aug/","data/" + DATASET_NAME + "/train/aug/")
 #  model.fit(imgs_train, imgs_mask_train, batch_size=2, nb_epoch=10, verbose=1,validation_split=0.2, shuffle=True, callbacks=[model_checkpoint])
