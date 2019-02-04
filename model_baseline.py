@@ -99,7 +99,7 @@ def baseline_v2_multiclass(pretrained_weights=None,
     conv3 = Conv2D(
         3,
         1,
-        activation='sigmoid',
+        activation='softmax',
         padding='same',
         kernel_initializer='he_normal')(conv2)
 

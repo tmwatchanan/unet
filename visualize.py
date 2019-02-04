@@ -2,8 +2,8 @@ import os
 import csv
 import matplotlib.pyplot as plt
 
-DATASET_NAME = "multi-eye"
-DATASET_DIR_NAME = "multi-eye"
+DATASET_NAME = "eye-multiclass-unet-sigmoid-lr1e_2"
+DATASET_DIR_NAME = "eye-multiclass-unet-sigmoid-lr1e_2"
 DATASET_PATH = os.path.join('data', DATASET_NAME)
 LOSS_ACC_FILE = os.path.join(DATASET_PATH, f"{DATASET_DIR_NAME}-loss-acc.csv")
 fig_acc_file = os.path.join(DATASET_PATH, f"{DATASET_DIR_NAME}-acc.png")

@@ -17,12 +17,21 @@ Unlabelled = [0, 0, 0]
 COLOR_DICT = np.array([Background, Sclera, Iris, Unlabelled])
 
 
-def adjustData(img, mask, flag_multi_class, num_class):
+def adjustData(img, mask, flag_multi_class, num_class, save_path):
     if (flag_multi_class):
         img = img / 255
         #  mask = mask[:,:,:,0] if(len(mask.shape) == 4) else mask[:,:,0]
         #  new_mask = np.zeros(mask.shape + (num_class,))
         new_mask = mask / 255
+        #  new_mask[0, :, :, 0] = 1
+        #  new_mask[0, :, :, 1] = 1 - new_mask[0, :, :, 0]
+        #  new_mask[0, :, :, 2] = 0
+
+        io.imsave(os.path.join(save_path, f"merged.png"), new_mask[0])
+        io.imsave(os.path.join(save_path, f"0.png"), new_mask[0, :, :, 0])
+        io.imsave(os.path.join(save_path, f"1.png"), new_mask[0, :, :, 1])
+        io.imsave(os.path.join(save_path, f"2.png"), new_mask[0, :, :, 2])
+
         #  new_mask = np.zeros(mask.shape + (1,))
         #  for i in range(num_class):
         # for one pixel in the image, find the class in mask and convert it into one-hot vector
@@ -52,6 +61,7 @@ def trainGenerator(batch_size,
                    train_path,
                    image_folder,
                    mask_folder,
+                   save_path,
                    aug_dict,
                    image_color_mode="grayscale",
                    mask_color_mode="grayscale",
@@ -94,7 +104,8 @@ def trainGenerator(batch_size,
         #  print(np.max(mask))
         #  print(mask[0, 0, 0], mask[0, 0, 1], mask[0, 0, 2])
         #  print(mask[64, 64, 0], mask[64, 64, 1], mask[64, 64, 2])
-        img, mask = adjustData(img, mask, flag_multi_class, num_class)
+        img, mask = adjustData(img, mask, flag_multi_class, num_class,
+                               save_path)
         yield (img, mask)
 
 
@@ -171,6 +182,22 @@ def labelVisualize(num_class, color_dict, img):
     return img_out / 255
 
 
+def max_rgb_filter(image):
+    # split the image into its BGR components
+    (B, G, R) = cv2.split(image)
+
+    # find the maximum pixel intensity values for each
+    # (x, y)-coordinate,, then set all pixel values less
+    # than M to zero
+    M = np.maximum(np.maximum(R, G), B)
+    R[R < M] = 0
+    G[G < M] = 0
+    B[B < M] = 0
+
+    # merge the channels back together and return the image
+    return cv2.merge([B, G, R])
+
+
 def saveResult(save_path,
                npyfile,
                file_names,
@@ -178,12 +205,14 @@ def saveResult(save_path,
                flag_multi_class=False,
                num_class=2):
     for i, item in enumerate(npyfile):
+        file_name = os.path.splitext(file_names[i])[0]
+
         img = labelVisualize(num_class, COLOR_DICT,
                              item) if flag_multi_class else item[:, :, 0]
         #  cv2.imshow('img', img)
         #  cv2.waitKey(0)
         #  io.imsave(
-        #  os.path.join(save_path, f"{file_names[i]}-{weights_name}.png"),
+        #  os.path.join(save_path, f"{file_name}-{weights_name}.png"),
         #  img)
         print(
             np.min(item[:, :, 0]), np.min(item[:, :, 1]),
@@ -191,15 +220,19 @@ def saveResult(save_path,
         print(
             np.max(item[:, :, 0]), np.max(item[:, :, 1]),
             np.max(item[:, :, 2]))
+
+        visualized_img = max_rgb_filter(item)
+        visualized_img[visualized_img > 0] = 1
+
         io.imsave(
-            os.path.join(save_path,
-                         f"{file_names[i]}-{weights_name}-merged.png"), item)
+            os.path.join(save_path, f"{file_name}-{weights_name}-merged.png"),
+            visualized_img)
         io.imsave(
-            os.path.join(save_path, f"{file_names[i]}-{weights_name}-0.png"),
+            os.path.join(save_path, f"{file_name}-{weights_name}-0.png"),
             item[:, :, 0])
         io.imsave(
-            os.path.join(save_path, f"{file_names[i]}-{weights_name}-1.png"),
+            os.path.join(save_path, f"{file_name}-{weights_name}-1.png"),
             item[:, :, 1])
         io.imsave(
-            os.path.join(save_path, f"{file_names[i]}-{weights_name}-2.png"),
+            os.path.join(save_path, f"{file_name}-{weights_name}-2.png"),
             item[:, :, 2])

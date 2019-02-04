@@ -1,9 +1,9 @@
 import os
-import csv
-from model_baseline import baseline_v2_multiclass, ModelCheckpoint
+from model import unet, ModelCheckpoint
+#  from model_baseline import baseline_v2_multiclass, ModelCheckpoint
 from data import trainGenerator, testGenerator, saveResult
 
-DATASET_NAME = 'multi-eye'
+DATASET_NAME = 'eye-multiclass-unet-sigmoid-lr1e_3'
 dataset_path = os.path.join('data', DATASET_NAME)
 COLOR = 'rgb'  # rgb, grayscale
 CONTINUED_WEIGHT = None  # "14", None
@@ -11,9 +11,10 @@ weights_name = DATASET_NAME + "-{}"
 loss_acc_filename = f"{DATASET_NAME}-loss-acc.csv"
 loss_acc_file = os.path.join(dataset_path, loss_acc_filename)
 EPOCH_START = 1
-EPOCH_END = 301
-BATCH_SIZE = 1  # 10
-LEARNING_RATE = 1e-2
+EPOCH_END = 501
+BATCH_SIZE = 6  # 10
+STEPS_PER_EPOCH = 1  # None
+LEARNING_RATE = 1e-3
 INPUT_SIZE = (256, 256)
 TARGET_SIZE = (256, 256)
 NUM_CLASS = 3
@@ -36,15 +37,19 @@ validation_labels_set_dir = os.path.join(validation_set_dir, 'labels')
 validation_aug_set_dir = os.path.join(validation_set_dir, 'augmentation')
 test_set_dir = os.path.join(dataset_path, 'test')
 predicted_set_dir = os.path.join(dataset_path, f"test-predicted-{COLOR}")
+mask_set_dir = os.path.join(dataset_path, f"mask-{COLOR}")
 
 if not os.path.exists(weights_dir):
     os.makedirs(weights_dir)
 if not os.path.exists(predicted_set_dir):
     os.makedirs(predicted_set_dir)
+if not os.path.exists(mask_set_dir):
+    os.makedirs(mask_set_dir)
 
 model_filename = "{}.hdf5"
 if CONTINUED_WEIGHT:
-    trained_weights_name = weights_name.format(CONTINUED_WEIGHT)
+    #  trained_weights_name = weights_name.format(CONTINUED_WEIGHT)
+    trained_weights_name = CONTINUED_WEIGHT
     trained_weights_file = model_filename.format(trained_weights_name)
     trained_weights_file = os.path.join(weights_dir, trained_weights_file)
 else:
@@ -56,13 +61,15 @@ for root, dirs, files in os.walk(training_images_set_dir):
 num_validation = 0
 for root, dirs, files in os.walk(validation_images_set_dir):
     num_validation += len(files)
+if STEPS_PER_EPOCH is None:
+    STEPS_PER_EPOCH = num_training
 print(num_training, num_validation)
 
 if COLOR == 'rgb':
     input_size = INPUT_SIZE + (3, )
 elif COLOR == 'grayscale':
     input_size = INPUT_SIZE + (1, )
-model = baseline_v2_multiclass(
+model = unet(
     pretrained_weights=trained_weights_file,
     input_size=input_size,
     learning_rate=LEARNING_RATE)  # load pretrained model
@@ -70,11 +77,11 @@ model = baseline_v2_multiclass(
 #  model_file += "-{epoch:02d}-{val_acc:.2f}.hdf5"
 
 data_gen_args = dict(
-    rotation_range=0.2,
+    rotation_range=10,
     width_shift_range=0.05,
     height_shift_range=0.05,
     shear_range=0.05,
-    zoom_range=0.05,
+    zoom_range=0.1,
     horizontal_flip=True,
     fill_mode='nearest')
 train_gen = trainGenerator(
@@ -82,6 +89,7 @@ train_gen = trainGenerator(
     training_set_dir,
     'images',
     'labels',
+    mask_set_dir,
     data_gen_args,
     save_to_dir=None,
     image_color_mode=COLOR,
@@ -93,6 +101,7 @@ validation_gen = trainGenerator(
     validation_set_dir,
     'images',
     'labels',
+    mask_set_dir,
     data_gen_args,
     save_to_dir=None,
     image_color_mode=COLOR,
@@ -114,7 +123,8 @@ if not os.path.exists(loss_acc_file):
 # for each epoch
 for i in range(EPOCH_START, EPOCH_END):
     # train the model
-    new_weights_name = weights_name.format(str(i))
+    #  new_weights_name = weights_name.format(str(i))
+    new_weights_name = str(i)
     new_weights_file = model_filename.format(new_weights_name)
     new_weights_file = os.path.join(weights_dir, new_weights_file)
     model_checkpoint = ModelCheckpoint(
@@ -127,7 +137,7 @@ for i in range(EPOCH_START, EPOCH_END):
         period=1)
     history = model.fit_generator(
         train_gen,
-        steps_per_epoch=num_training,
+        steps_per_epoch=STEPS_PER_EPOCH,
         epochs=1,
         callbacks=[model_checkpoint],
         validation_data=validation_gen,
