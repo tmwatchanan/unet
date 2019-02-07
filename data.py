@@ -23,14 +23,18 @@ def adjustData(img, mask, flag_multi_class, num_class, save_path):
         #  mask = mask[:,:,:,0] if(len(mask.shape) == 4) else mask[:,:,0]
         #  new_mask = np.zeros(mask.shape + (num_class,))
         new_mask = mask / 255
+        mask_shape = new_mask.shape
+        new_mask = np.reshape(
+            new_mask,
+            (mask_shape[0], mask_shape[1] * mask_shape[2], mask_shape[3]))
         #  new_mask[0, :, :, 0] = 1
         #  new_mask[0, :, :, 1] = 1 - new_mask[0, :, :, 0]
         #  new_mask[0, :, :, 2] = 0
 
-        io.imsave(os.path.join(save_path, f"merged.png"), new_mask[0])
-        io.imsave(os.path.join(save_path, f"0.png"), new_mask[0, :, :, 0])
-        io.imsave(os.path.join(save_path, f"1.png"), new_mask[0, :, :, 1])
-        io.imsave(os.path.join(save_path, f"2.png"), new_mask[0, :, :, 2])
+        #  io.imsave(os.path.join(save_path, f"merged.png"), new_mask[0])
+        #  io.imsave(os.path.join(save_path, f"0.png"), new_mask[0, :, :, 0])
+        #  io.imsave(os.path.join(save_path, f"1.png"), new_mask[0, :, :, 1])
+        #  io.imsave(os.path.join(save_path, f"2.png"), new_mask[0, :, :, 2])
 
         #  new_mask = np.zeros(mask.shape + (1,))
         #  for i in range(num_class):
@@ -121,6 +125,7 @@ def testGenerator(test_path, target_size=(256, 256), color='rgb'):
         img = img / 255
         img = trans.resize(img, target_size)
         #  img = np.reshape(img,img.shape+(1,)) if (not flag_multi_class) else img
+        #  img = np.reshape(img, (img.shape[0] * img.shape[1], img.shape[2]))
         img = np.reshape(img,
                          img.shape + (1, )) if color == 'grayscale' else img
         img = np.reshape(img, (1, ) + img.shape)
@@ -214,12 +219,12 @@ def saveResult(save_path,
         #  io.imsave(
         #  os.path.join(save_path, f"{file_name}-{weights_name}.png"),
         #  img)
-        print(
-            np.min(item[:, :, 0]), np.min(item[:, :, 1]),
-            np.min(item[:, :, 2]))
-        print(
-            np.max(item[:, :, 0]), np.max(item[:, :, 1]),
-            np.max(item[:, :, 2]))
+        #  print(
+        #  np.min(item[:, :, 0]), np.min(item[:, :, 1]),
+        #  np.min(item[:, :, 2]))
+        #  print(
+        #  np.max(item[:, :, 0]), np.max(item[:, :, 1]),
+        #  np.max(item[:, :, 2]))
 
         visualized_img = max_rgb_filter(item)
         visualized_img[visualized_img > 0] = 1

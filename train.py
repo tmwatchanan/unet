@@ -1,9 +1,10 @@
 import os
-from model import unet, ModelCheckpoint
-#  from model_baseline import baseline_v2_multiclass, ModelCheckpoint
+#  from model import unet, ModelCheckpoint
+from model_baseline import baseline_v3_multiclass, ModelCheckpoint
 from data import trainGenerator, testGenerator, saveResult
+from keras.models import Model
 
-DATASET_NAME = 'eye-multiclass-unet_v2-sigmoid-lr1e_3'
+DATASET_NAME = 'eye-multiclass-baseline_v3_multiclass-softmax-cce-lr1e_3'
 dataset_path = os.path.join('data', DATASET_NAME)
 COLOR = 'rgb'  # rgb, grayscale
 CONTINUED_WEIGHT = None  # "14", None
@@ -11,13 +12,13 @@ weights_name = DATASET_NAME + "-{}"
 loss_acc_filename = f"{DATASET_NAME}-loss-acc.csv"
 loss_acc_file = os.path.join(dataset_path, loss_acc_filename)
 EPOCH_START = 1
-EPOCH_END = 2001
+EPOCH_END = 3001
 BATCH_SIZE = 6  # 10
 STEPS_PER_EPOCH = 1  # None
 LEARNING_RATE = 1e-3
 INPUT_SIZE = (256, 256)
 TARGET_SIZE = (256, 256)
-NUM_CLASS = 3
+NUM_CLASSES = 3
 
 if BATCH_SIZE > 10:
     answer = input(
@@ -69,8 +70,9 @@ if COLOR == 'rgb':
     input_size = INPUT_SIZE + (3, )
 elif COLOR == 'grayscale':
     input_size = INPUT_SIZE + (1, )
-model = unet(
+model, mask_model = baseline_v3_multiclass(
     pretrained_weights=trained_weights_file,
+    num_classes=NUM_CLASSES,
     input_size=input_size,
     learning_rate=LEARNING_RATE)  # load pretrained model
 
@@ -95,7 +97,7 @@ train_gen = trainGenerator(
     image_color_mode=COLOR,
     mask_color_mode=COLOR,
     flag_multi_class=True,
-    num_class=NUM_CLASS)
+    num_class=NUM_CLASSES)
 validation_gen = trainGenerator(
     BATCH_SIZE,
     validation_set_dir,
@@ -107,7 +109,7 @@ validation_gen = trainGenerator(
     image_color_mode=COLOR,
     mask_color_mode=COLOR,
     flag_multi_class=True,
-    num_class=NUM_CLASS)
+    num_class=NUM_CLASSES)
 
 test_files = [
     name for name in os.listdir(test_set_dir)
@@ -141,7 +143,9 @@ for i in range(EPOCH_START, EPOCH_END):
         epochs=1,
         callbacks=[model_checkpoint],
         validation_data=validation_gen,
-        validation_steps=num_validation)
+        validation_steps=num_validation,
+        workers=0,
+        use_multiprocessing=True)
     trained_acc = history.history['acc'][-1]
     trained_val_acc = history.history['val_acc'][-1]
     trained_loss = history.history['loss'][-1]
@@ -154,7 +158,8 @@ for i in range(EPOCH_START, EPOCH_END):
     # test the model
     test_gen = testGenerator(
         test_set_dir, target_size=TARGET_SIZE, color=COLOR)
-    results = model.predict_generator(
+
+    results = mask_model.predict_generator(
         test_gen, steps=num_test_files, verbose=1)
     print(test_files)
     print(new_weights_name)
@@ -165,7 +170,7 @@ for i in range(EPOCH_START, EPOCH_END):
             file_names=test_files,
             weights_name=new_weights_name,
             flag_multi_class=True,
-            num_class=NUM_CLASS)
+            num_class=NUM_CLASSES)
 
 #  imgs_train,imgs_mask_train = geneTrainNpy("data/" + DATASET_NAME + "/train/aug/","data/" + DATASET_NAME + "/train/aug/")
 #  model.fit(imgs_train, imgs_mask_train, batch_size=2, nb_epoch=10, verbose=1,validation_split=0.2, shuffle=True, callbacks=[model_checkpoint])
