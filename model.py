@@ -1,5 +1,5 @@
 from keras.models import Model
-from keras.layers import Input, Conv2D, Reshape, Permute, Activation
+from keras.layers import Input, Conv2D, Reshape, Permute, Activation, MaxPooling2D, Dropout, UpSampling2D, concatenate
 from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint
 
@@ -190,6 +190,9 @@ def unet_v3(pretrained_weights=None,
             num_classes=2,
             input_size=(256, 256, 3),
             learning_rate=1e-4):
+    input_width = input_size[0]
+    input_height = input_size[1]
+
     inputs = Input(input_size)
 
     gray0 = inputs
