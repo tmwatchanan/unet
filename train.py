@@ -169,7 +169,7 @@ for i in range(EPOCH_START, EPOCH_END):
         test_gen, steps=num_test_files, verbose=1)
     print(test_files)
     print(new_weights_name)
-    if (i <= 100) or (i > 100 and i % 100 == 0):
+    if (i == 1) or (i % 100 == 0):
         saveResult(
             predicted_set_dir,
             results,
