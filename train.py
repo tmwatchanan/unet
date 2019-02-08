@@ -1,10 +1,10 @@
 import os
-from model import unet_v3, ModelCheckpoint
-#  from model_baseline import baseline_v3_multiclass, ModelCheckpoint
+#  from model import unet_v3, ModelCheckpoint
+from model_baseline import baseline_v3_multiclass, ModelCheckpoint
 from data import trainGenerator, testGenerator, saveResult
 from keras.models import Model
 
-DATASET_NAME = 'eye-multiclass-unet_v3-softmax-cce-lr1e_3'
+DATASET_NAME = 'eye-multiclass-baseline_v3-softmax-cce-lr1e_3'
 dataset_path = os.path.join('data', DATASET_NAME)
 COLOR = 'rgb'  # rgb, grayscale
 CONTINUED_WEIGHT = None  # "14", None
@@ -70,7 +70,7 @@ if COLOR == 'rgb':
     input_size = INPUT_SIZE + (3, )
 elif COLOR == 'grayscale':
     input_size = INPUT_SIZE + (1, )
-model, mask_model = unet_v3(
+model, mask_model = baseline_v3_multiclass(
     pretrained_weights=trained_weights_file,
     num_classes=NUM_CLASSES,
     input_size=input_size,
@@ -129,19 +129,22 @@ for i in range(EPOCH_START, EPOCH_END):
     new_weights_name = str(i)
     new_weights_file = model_filename.format(new_weights_name)
     new_weights_file = os.path.join(weights_dir, new_weights_file)
-    model_checkpoint = ModelCheckpoint(
-        filepath=new_weights_file,
-        monitor='val_acc',
-        mode='auto',
-        verbose=1,
-        save_best_only=False,
-        save_weights_only=False,
-        period=1)
+    callbacks = None
+    if (i == 1) or (i % 100 == 0):
+        model_checkpoint = ModelCheckpoint(
+            filepath=new_weights_file,
+            monitor='val_acc',
+            mode='auto',
+            verbose=1,
+            save_best_only=False,
+            save_weights_only=False,
+            period=1)
+        callbacks = [model_checkpoint]
     history = model.fit_generator(
         train_gen,
         steps_per_epoch=STEPS_PER_EPOCH,
         epochs=1,
-        callbacks=[model_checkpoint],
+        callbacks=callbacks,
         validation_data=validation_gen,
         validation_steps=num_validation,
         workers=0,
