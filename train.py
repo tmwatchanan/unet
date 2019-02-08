@@ -1,10 +1,10 @@
 import os
-#  from model import unet, ModelCheckpoint
-from model_baseline import baseline_v3_multiclass, ModelCheckpoint
+from model import unet_v3, ModelCheckpoint
+#  from model_baseline import baseline_v3_multiclass, ModelCheckpoint
 from data import trainGenerator, testGenerator, saveResult
 from keras.models import Model
 
-DATASET_NAME = 'eye-multiclass-baseline_v3_multiclass-softmax-cce-lr1e_3'
+DATASET_NAME = 'eye-multiclass-unet_v3-softmax-cce-lr1e_3'
 dataset_path = os.path.join('data', DATASET_NAME)
 COLOR = 'rgb'  # rgb, grayscale
 CONTINUED_WEIGHT = None  # "14", None
@@ -70,7 +70,7 @@ if COLOR == 'rgb':
     input_size = INPUT_SIZE + (3, )
 elif COLOR == 'grayscale':
     input_size = INPUT_SIZE + (1, )
-model, mask_model = baseline_v3_multiclass(
+model, mask_model = unet_v3(
     pretrained_weights=trained_weights_file,
     num_classes=NUM_CLASSES,
     input_size=input_size,
@@ -156,9 +156,15 @@ for i in range(EPOCH_START, EPOCH_END):
     with open(loss_acc_file, "a") as f:
         f.write(f"{loss_acc}\n")
     # test the model
+    test_gen_softmax = testGenerator(
+        test_set_dir, target_size=TARGET_SIZE, color=COLOR)
+    softmax_results = model.predict_generator(
+        test_gen_softmax, steps=num_test_files, verbose=1)
+    for idx, item in enumerate(softmax_results):
+        print(item[16384, :])
+
     test_gen = testGenerator(
         test_set_dir, target_size=TARGET_SIZE, color=COLOR)
-
     results = mask_model.predict_generator(
         test_gen, steps=num_test_files, verbose=1)
     print(test_files)
