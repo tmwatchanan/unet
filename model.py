@@ -360,8 +360,8 @@ def unet_v2(pretrained_weights=None,
 
     model.compile(
         optimizer=Adam(lr=learning_rate),
-        loss='categorical_crossentropy',
-        metrics=['accuracy'])
+        loss='mean_squared_error',
+        metrics=['accuracy', 'categorical_crossentropy', 'mean_absolute_error', 'mean_absolute_percentage_error'])
 
     # model.summary()
 

@@ -24,9 +24,12 @@ def adjustData(img, mask, flag_multi_class, num_class, save_path):
         #  new_mask = np.zeros(mask.shape + (num_class,))
         new_mask = mask / 255
         mask_shape = new_mask.shape
-        new_mask = np.reshape(
-            new_mask,
-            (mask_shape[0], mask_shape[1] * mask_shape[2], mask_shape[3]))
+
+        # for model with reshaped outputs
+        #  new_mask = np.reshape(
+            #  new_mask,
+            #  (mask_shape[0], mask_shape[1] * mask_shape[2], mask_shape[3]))
+            
         #  new_mask[0, :, :, 0] = 1
         #  new_mask[0, :, :, 1] = 1 - new_mask[0, :, :, 0]
         #  new_mask[0, :, :, 2] = 0
@@ -210,6 +213,7 @@ def saveResult(save_path,
                flag_multi_class=False,
                num_class=2):
     for i, item in enumerate(npyfile):
+        item = np.reshape(item, (256, 256, num_class))
         file_name = os.path.splitext(file_names[i])[0]
 
         img = labelVisualize(num_class, COLOR_DICT,

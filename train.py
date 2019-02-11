@@ -1,10 +1,10 @@
 import os
-#  from model import unet_v3, ModelCheckpoint
-from model_baseline import baseline_v3_multiclass, ModelCheckpoint
+from model import unet_v2, ModelCheckpoint
+#  from model_baseline import baseline_v3_multiclass, ModelCheckpoint
 from data import trainGenerator, testGenerator, saveResult
 from keras.models import Model
 
-DATASET_NAME = 'eye-multiclass-baseline_v3-softmax-cce-lr1e_3'
+DATASET_NAME = 'eye-multiclass-unet_v2-softmax-mse-64-lr1e_3'
 dataset_path = os.path.join('data', DATASET_NAME)
 COLOR = 'rgb'  # rgb, grayscale
 CONTINUED_WEIGHT = None  # "14", None
@@ -12,7 +12,7 @@ weights_name = DATASET_NAME + "-{}"
 loss_acc_filename = f"{DATASET_NAME}-loss-acc.csv"
 loss_acc_file = os.path.join(dataset_path, loss_acc_filename)
 EPOCH_START = 1
-EPOCH_END = 3001
+EPOCH_END = 4501
 BATCH_SIZE = 6  # 10
 STEPS_PER_EPOCH = 1  # None
 LEARNING_RATE = 1e-3
@@ -70,7 +70,7 @@ if COLOR == 'rgb':
     input_size = INPUT_SIZE + (3, )
 elif COLOR == 'grayscale':
     input_size = INPUT_SIZE + (1, )
-model, mask_model = baseline_v3_multiclass(
+model, mask_model = unet_v2(
     pretrained_weights=trained_weights_file,
     num_classes=NUM_CLASSES,
     input_size=input_size,
@@ -120,7 +120,7 @@ num_test_files = len(test_files)
 loss_acc_list = []
 if not os.path.exists(loss_acc_file):
     with open(loss_acc_file, "w") as f:
-        f.write('epoch,acc,val_acc,loss,val_loss\n')
+        f.write('epoch,acc,val_acc,loss,val_loss,cce,val_cce,mae,val_mae,mape,val_mape\n')
 
 # for each epoch
 for i in range(EPOCH_START, EPOCH_END):
@@ -149,13 +149,20 @@ for i in range(EPOCH_START, EPOCH_END):
         validation_steps=num_validation,
         workers=0,
         use_multiprocessing=True)
+    print(history.history.keys())
     trained_acc = history.history['acc'][-1]
     trained_val_acc = history.history['val_acc'][-1]
     trained_loss = history.history['loss'][-1]
     trained_val_loss = history.history['val_loss'][-1]
+    trained_cce = history.history['categorical_crossentropy'][-1]
+    trained_val_cce = history.history['val_categorical_crossentropy'][-1]
+    trained_mae = history.history['mean_absolute_error'][-1]
+    trained_val_mae = history.history['val_mean_absolute_error'][-1]
+    trained_mape = history.history['mean_absolute_percentage_error'][-1]
+    trained_val_mape = history.history['val_mean_absolute_percentage_error'][-1]
     loss_acc = ','.join(
         str(e) for e in
-        [i, trained_acc, trained_val_acc, trained_loss, trained_val_loss])
+        [i, trained_acc, trained_val_acc, trained_loss, trained_val_loss, trained_cce, trained_val_cce, trained_mae, trained_val_mae, trained_mape, trained_val_mape])
     with open(loss_acc_file, "a") as f:
         f.write(f"{loss_acc}\n")
     # test the model
@@ -163,8 +170,8 @@ for i in range(EPOCH_START, EPOCH_END):
         test_set_dir, target_size=TARGET_SIZE, color=COLOR)
     softmax_results = model.predict_generator(
         test_gen_softmax, steps=num_test_files, verbose=1)
-    for idx, item in enumerate(softmax_results):
-        print(item[16384, :])
+    #  for idx, item in enumerate(softmax_results):
+        #  print(item[16384, :])
 
     test_gen = testGenerator(
         test_set_dir, target_size=TARGET_SIZE, color=COLOR)
