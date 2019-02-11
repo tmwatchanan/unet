@@ -187,6 +187,7 @@ def unet(pretrained_weights=None, input_size=(256, 256, 3),
 
 
 def unet_v2(pretrained_weights=None,
+            num_classes=2,
             input_size=(256, 256, 3),
             learning_rate=1e-4):
     inputs = Input(input_size)
@@ -352,7 +353,7 @@ def unet_v2(pretrained_weights=None,
         activation='relu',
         padding='same',
         kernel_initializer='he_normal')(conv9)
-    conv10 = Conv2D(3, 1, activation='softmax')(conv9)
+    conv10 = Conv2D(num_classes, 1, activation='softmax')(conv9)
 
     model = Model(input=inputs, output=conv10)
 
