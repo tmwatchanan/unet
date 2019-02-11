@@ -355,6 +355,7 @@ def unet_v2(pretrained_weights=None,
         kernel_initializer='he_normal')(conv9)
     conv10 = Conv2D(num_classes, 1, activation='softmax')(conv9)
 
+    mask_model = Model(input=inputs, output=conv10)
     model = Model(input=inputs, output=conv10)
 
     model.compile(
@@ -367,7 +368,7 @@ def unet_v2(pretrained_weights=None,
     if (pretrained_weights):
         model.load_weights(pretrained_weights)
 
-    return model
+    return model, mask_model
 
 
 def unet_v3(pretrained_weights=None,
