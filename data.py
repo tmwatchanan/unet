@@ -27,9 +27,9 @@ def adjustData(img, mask, flag_multi_class, num_class, save_path):
 
         # for model with reshaped outputs
         #  new_mask = np.reshape(
-            #  new_mask,
-            #  (mask_shape[0], mask_shape[1] * mask_shape[2], mask_shape[3]))
-            
+        #  new_mask,
+        #  (mask_shape[0], mask_shape[1] * mask_shape[2], mask_shape[3]))
+
         #  new_mask[0, :, :, 0] = 1
         #  new_mask[0, :, :, 1] = 1 - new_mask[0, :, :, 0]
         #  new_mask[0, :, :, 2] = 0
@@ -125,6 +125,7 @@ def testGenerator(test_path, target_size=(256, 256), color='rgb'):
         elif color == 'grayscale':
             imread_flag = cv2.IMREAD_GRAYSCALE
         img = cv2.imread(file_path, imread_flag)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         img = img / 255
         img = trans.resize(img, target_size)
         #  img = np.reshape(img,img.shape+(1,)) if (not flag_multi_class) else img
