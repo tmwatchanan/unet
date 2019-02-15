@@ -75,6 +75,7 @@ def baseline_v2(pretrained_weights=None,
 
 
 def baseline_v2_multiclass(pretrained_weights=None,
+                           num_classes=2,
                            input_size=(256, 256, 3),
                            learning_rate=1e-4):
     inputs = Input(input_size)
@@ -91,25 +92,29 @@ def baseline_v2_multiclass(pretrained_weights=None,
         padding='same',
         kernel_initializer='he_normal')(conv1)
     conv3 = Conv2D(
-        3,
+        num_classes,
         1,
         activation='softmax',
         padding='same',
         kernel_initializer='he_normal')(conv2)
 
+    mask_model = Model(input=inputs, output=conv3)
     model = Model(input=inputs, output=conv3)
 
     model.compile(
         optimizer=Adam(lr=learning_rate),
-        loss='mean_squared_error',
-        metrics=['accuracy'])
+        loss='categorical_crossentropy',
+        metrics=[
+            'accuracy', 'categorical_crossentropy', 'mean_absolute_error',
+            'mean_absolute_percentage_error', 'mean_squared_error'
+        ])
 
     # model.summary()
 
     if pretrained_weights:
         model.load_weights(pretrained_weights)
 
-    return model
+    return model, mask_model
 
 
 def baseline_v3_multiclass(pretrained_weights=None,
@@ -151,6 +156,49 @@ def baseline_v3_multiclass(pretrained_weights=None,
         metrics=['accuracy'])
 
     model.summary()
+
+    if pretrained_weights:
+        model.load_weights(pretrained_weights)
+
+    return model, mask_model
+
+
+def baseline_v4_multiclass(pretrained_weights=None,
+                           num_classes=2,
+                           input_size=(256, 256, 3),
+                           learning_rate=1e-4):
+    inputs = Input(input_size)
+    conv1 = Conv2D(
+        6,
+        1,
+        activation='sigmoid',
+        padding='same',
+        kernel_initializer='he_normal')(inputs)
+    conv2 = Conv2D(
+        6,
+        5,
+        activation='sigmoid',
+        padding='same',
+        kernel_initializer='he_normal')(conv1)
+    conv3 = Conv2D(
+        num_classes,
+        1,
+        activation='softmax',
+        padding='same',
+        kernel_initializer='he_normal')(conv2)
+
+    mask_model = Model(input=inputs, output=conv3)
+    model = Model(input=inputs, output=conv3)
+
+    model.compile(
+        optimizer=Adam(lr=learning_rate),
+        loss='categorical_crossentropy',
+        metrics=[
+            'accuracy', 'categorical_crossentropy', 'mean_absolute_error',
+            'mean_absolute_percentage_error', 'mean_squared_error'
+        ])
+
+    # model.summary()
 
     if pretrained_weights:
         model.load_weights(pretrained_weights)
