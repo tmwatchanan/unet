@@ -1,10 +1,10 @@
 import os
 #  from model import unet_v2, ModelCheckpoint
-from model_baseline import baseline_v5_multiclass, ModelCheckpoint
+from model_baseline import baseline_v6_multiclass, ModelCheckpoint
 from data import trainGenerator, testGenerator, saveResult
 from keras.models import Model
 
-DATASET_NAME = 'eye-multiclass-baseline_v5-softmax-cce-lr1e_2'
+DATASET_NAME = 'eye-multiclass-baseline_v6-softmax-cce-lr1e_2'
 dataset_path = os.path.join('data', DATASET_NAME)
 COLOR = 'rgb'  # rgb, grayscale
 CONTINUED_WEIGHT = None  # "14", None
@@ -67,10 +67,10 @@ if STEPS_PER_EPOCH is None:
 print(num_training, num_validation)
 
 if COLOR == 'rgb':
-    input_size = INPUT_SIZE + (3, )
+    input_size = INPUT_SIZE + (5, )
 elif COLOR == 'grayscale':
     input_size = INPUT_SIZE + (1, )
-model, mask_model = baseline_v5_multiclass(
+model, mask_model = baseline_v6_multiclass(
     pretrained_weights=trained_weights_file,
     num_classes=NUM_CLASSES,
     input_size=input_size,

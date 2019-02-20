@@ -17,9 +17,25 @@ Unlabelled = [0, 0, 0]
 COLOR_DICT = np.array([Background, Sclera, Iris, Unlabelled])
 
 
-def adjustData(img, mask, flag_multi_class, num_class, save_path):
+def add_position_layers(img, size):
+    x_range = np.arange(size[0]) / (size[0] - 1)
+    y_range = x_range.reshape(-1, 1) / (size[0] - 1)
+    X = Y = np.zeros(shape=[size[0], size[1]])
+    X[:, :] = x_range
+    Y[:, :] = y_range
+    img = np.insert(img, -1, X, axis=3)
+    img = np.insert(img, -1, Y, axis=3)
+    return img
+
+
+def adjustData(img, mask, flag_multi_class, num_class, save_path, target_size):
     if (flag_multi_class):
         img = img / 255
+        img = add_position_layers(img, target_size)
+
+        #  img[0, :, :, 3] = X
+        #  img[0, :, :, 4] = Y
+
         #  mask = mask[:,:,:,0] if(len(mask.shape) == 4) else mask[:,:,0]
         #  new_mask = np.zeros(mask.shape + (num_class,))
         new_mask = mask / 255
@@ -112,7 +128,7 @@ def trainGenerator(batch_size,
         #  print(mask[0, 0, 0], mask[0, 0, 1], mask[0, 0, 2])
         #  print(mask[64, 64, 0], mask[64, 64, 1], mask[64, 64, 2])
         img, mask = adjustData(img, mask, flag_multi_class, num_class,
-                               save_path)
+                               save_path, target_size)
         yield (img, mask)
 
 
@@ -133,6 +149,7 @@ def testGenerator(test_path, target_size=(256, 256), color='rgb'):
         img = np.reshape(img,
                          img.shape + (1, )) if color == 'grayscale' else img
         img = np.reshape(img, (1, ) + img.shape)
+        img = add_position_layers(img, target_size)
         yield img
 
 
