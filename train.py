@@ -1,18 +1,18 @@
 import os
 #  from model import unet_v2, ModelCheckpoint
-from model_baseline import baseline_v2_multiclass, ModelCheckpoint
+from model_baseline import baseline_v5_multiclass, ModelCheckpoint
 from data import trainGenerator, testGenerator, saveResult
 from keras.models import Model
 
-DATASET_NAME = 'eye-multiclass-baseline_v2-softmax-cce-lr1e_2'
+DATASET_NAME = 'eye-multiclass-baseline_v5-softmax-cce-lr1e_2'
 dataset_path = os.path.join('data', DATASET_NAME)
 COLOR = 'rgb'  # rgb, grayscale
-CONTINUED_WEIGHT = "4500"  # "14", None
+CONTINUED_WEIGHT = None  # "14", None
 weights_name = DATASET_NAME + "-{}"
 loss_acc_filename = f"{DATASET_NAME}-loss-acc.csv"
 loss_acc_file = os.path.join(dataset_path, loss_acc_filename)
-EPOCH_START = 4501
-EPOCH_END = 4502
+EPOCH_START = 1
+EPOCH_END = 4501
 BATCH_SIZE = 6  # 10
 STEPS_PER_EPOCH = 1  # None
 LEARNING_RATE = 1e-3
@@ -70,7 +70,7 @@ if COLOR == 'rgb':
     input_size = INPUT_SIZE + (3, )
 elif COLOR == 'grayscale':
     input_size = INPUT_SIZE + (1, )
-model, mask_model = baseline_v2_multiclass(
+model, mask_model = baseline_v5_multiclass(
     pretrained_weights=trained_weights_file,
     num_classes=NUM_CLASSES,
     input_size=input_size,
@@ -185,14 +185,14 @@ for i in range(EPOCH_START, EPOCH_END):
         test_gen, steps=num_test_files, verbose=1)
     print(test_files)
     print(new_weights_name)
-    #  if (i == 1) or (i % 100 == 0):
-    saveResult(
-        predicted_set_dir,
-        results,
-        file_names=test_files,
-        weights_name=new_weights_name,
-        flag_multi_class=True,
-        num_class=NUM_CLASSES)
+    if (i == 1) or (i % 100 == 0):
+        saveResult(
+            predicted_set_dir,
+            results,
+            file_names=test_files,
+            weights_name=new_weights_name,
+            flag_multi_class=True,
+            num_class=NUM_CLASSES)
 
 #  imgs_train,imgs_mask_train = geneTrainNpy("data/" + DATASET_NAME + "/train/aug/","data/" + DATASET_NAME + "/train/aug/")
 #  model.fit(imgs_train, imgs_mask_train, batch_size=2, nb_epoch=10, verbose=1,validation_split=0.2, shuffle=True, callbacks=[model_checkpoint])
