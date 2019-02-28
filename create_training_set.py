@@ -19,6 +19,7 @@ labeled_data_file_path = os.path.join('datasets',
 dataset_path = os.path.join('datasets', DATASET_NAME)
 images_path = os.path.join(dataset_path, 'images')
 labels_path = os.path.join(dataset_path, 'labels')
+masks_path = os.path.join(dataset_path, 'masks')
 
 if not os.path.exists(dataset_path):
     os.makedirs(dataset_path)
@@ -26,6 +27,8 @@ if not os.path.exists(images_path):
     os.makedirs(images_path)
 if not os.path.exists(labels_path):
     os.makedirs(labels_path)
+if not os.path.exists(masks_path):
+    os.makedirs(masks_path)
 
 
 def download_from_url(url, external_id, file_ext, dir_name, class_id=None):
@@ -75,11 +78,11 @@ def main():
         img_path = download_from_url(img_url, external_id, 'jpg', images_path,
                                      0)
         img_0_path = download_from_url(class_0_url, external_id, 'png',
-                                       dataset_path, 0)
+                                       masks_path, 0)
         img_1_path = download_from_url(class_1_url, external_id, 'png',
-                                       dataset_path, 1)
+                                       masks_path, 1)
         img_2_path = download_from_url(class_2_url, external_id, 'png',
-                                       dataset_path, 2)
+                                       masks_path, 2)
         img_0 = cv2.imread(img_0_path)
         img_1 = cv2.imread(img_1_path)
         img_2 = cv2.imread(img_2_path)
