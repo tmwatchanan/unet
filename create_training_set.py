@@ -17,13 +17,22 @@ DATASET_JSON_FILENAME = 'eye_v2-labeled_data'
 labeled_data_file_path = os.path.join('datasets',
                                       f"{DATASET_JSON_FILENAME}.json")
 dataset_path = os.path.join('datasets', DATASET_NAME)
+images_path = os.path.join(dataset_path, 'images')
+labels_path = os.path.join(dataset_path, 'labels')
 
 if not os.path.exists(dataset_path):
     os.makedirs(dataset_path)
+if not os.path.exists(images_path):
+    os.makedirs(images_path)
+if not os.path.exists(labels_path):
+    os.makedirs(labels_path)
 
 
-def download_from_url(url, external_id, dir_name, class_id):
-    file_name = external_id + '-' + str(class_id) + '.png'
+def download_from_url(url, external_id, file_ext, dir_name, class_id=None):
+    if class_id:
+        file_name = f"{external_id}-{str(class_id)}.{file_ext}"
+    else:
+        file_name = external_id
     file_name = os.path.join(dir_name, file_name)
     u = urllib.request.urlopen(url)
     f = open(file_name, 'wb')
@@ -59,15 +68,18 @@ def main():
             continue
         external_id = item['External ID']
         masks_by_name = item['Label']['segmentationMasksByName']
+        img_url = item['Labeled Data']
         class_0_url = masks_by_name['Background']
         class_1_url = masks_by_name['Sclera']
         class_2_url = masks_by_name['Iris']
-        img_0_path = download_from_url(class_0_url, external_id, dataset_path,
-                                       0)
-        img_1_path = download_from_url(class_1_url, external_id, dataset_path,
-                                       1)
-        img_2_path = download_from_url(class_2_url, external_id, dataset_path,
-                                       2)
+        img_path = download_from_url(img_url, external_id, 'jpg', images_path,
+                                     0)
+        img_0_path = download_from_url(class_0_url, external_id, 'png',
+                                       dataset_path, 0)
+        img_1_path = download_from_url(class_1_url, external_id, 'png',
+                                       dataset_path, 1)
+        img_2_path = download_from_url(class_2_url, external_id, 'png',
+                                       dataset_path, 2)
         img_0 = cv2.imread(img_0_path)
         img_1 = cv2.imread(img_1_path)
         img_2 = cv2.imread(img_2_path)
@@ -103,7 +115,7 @@ def main():
         #  print(reshaped_img_mask.shape)
         #  print(reshaped_img_mask)
 
-        mask_path = os.path.join(dataset_path, f"{external_id}-mask.jpg")
+        mask_path = os.path.join(labels_path, external_id)
         cv2.imwrite(mask_path, reshaped_img_mask * 255)
 
         #  print(np.unique(img_mask))
