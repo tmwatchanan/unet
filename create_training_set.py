@@ -12,9 +12,14 @@ Unlabelled = [0, 0, 0]
 
 COLOR_DICT = np.array([Background, Sclera, Iris, Unlabelled])
 
-DATASET_NAME = 'multi-eye'
-dataset_path = os.path.join('data', DATASET_NAME)
-labeled_data_file_path = os.path.join(dataset_path, 'labeled_data.json')
+DATASET_NAME = 'eye_v2'
+DATASET_JSON_FILENAME = 'eye_v2-labeled_data'
+labeled_data_file_path = os.path.join('datasets',
+                                      f"{DATASET_JSON_FILENAME}.json")
+dataset_path = os.path.join('datasets', DATASET_NAME)
+
+if not os.path.exists(dataset_path):
+    os.makedirs(dataset_path)
 
 
 def download_from_url(url, external_id, dir_name, class_id):
@@ -49,6 +54,9 @@ def main():
         data = json.load(f)
 
     for item in data:
+        if item.get('Label') == "Skip":
+            print(item.get('Label'))
+            continue
         external_id = item['External ID']
         masks_by_name = item['Label']['segmentationMasksByName']
         class_0_url = masks_by_name['Background']
@@ -63,7 +71,7 @@ def main():
         img_0 = cv2.imread(img_0_path)
         img_1 = cv2.imread(img_1_path)
         img_2 = cv2.imread(img_2_path)
-        print(img_1.shape)
+        #  print(img_1.shape)
 
         background_color = [255, 255, 255]
         sclera_color = [0, 0, 255]  # BGR
@@ -85,20 +93,20 @@ def main():
         img_mask[mask, 0] = 2
         #  img_mask_vis = labelVisualize(3, COLOR_DICT, img_mask)
         #  img_mask[mask] = (0,0,255)
-        print(img_mask.shape)
+        #  print(img_mask.shape)
 
-        print(img_mask[300, 600])
+        #  print(img_mask[300, 600])
 
         reshaped_img_mask = to_categorical(img_mask)
-        print(reshaped_img_mask[300, 600, 0], reshaped_img_mask[300, 600, 1],
-              reshaped_img_mask[300, 600, 2])
-        print(reshaped_img_mask.shape)
+        #  print(reshaped_img_mask[300, 600, 0], reshaped_img_mask[300, 600, 1],
+        #  reshaped_img_mask[300, 600, 2])
+        #  print(reshaped_img_mask.shape)
         #  print(reshaped_img_mask)
 
         mask_path = os.path.join(dataset_path, f"{external_id}-mask.jpg")
         cv2.imwrite(mask_path, reshaped_img_mask * 255)
 
-        print(np.unique(img_mask))
+        #  print(np.unique(img_mask))
 
 
 def labelVisualize(num_class, color_dict, img):
