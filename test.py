@@ -5,18 +5,20 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import os
 from PIL import Image
+from model_baseline import baseline_v7_multiclass
 
-image_filename = 'E-1-1.jpg'
-DATASET_NAME = 'unet_check'
-WEIGHT_NAME = "unet-eye-10"
-COLOR = 'rgb' # rgb, grayscale
-INPUT_SIZE = (256, 256)
+DATASET_NAME = 'eye-multiclass-baseline_v7-softmax-cce-lr1e_2'
+TEST_DIR_NAME = 'blind_test'
+WEIGHT_NAME = "9000"
+COLOR = 'rgb'  # rgb, grayscale
+INPUT_SIZE = (256, 256, 5)
 TARGET_SIZE = (256, 256)
+NUM_CLASSES = 3
 FLAG_PLOT_MODEL = True
 
 dataset_dir = os.path.join('data', DATASET_NAME)
-test_dir = os.path.join(dataset_dir, "test")
-save_dir = os.path.join(dataset_dir, f"test-predicted-{COLOR}")
+test_dir = os.path.join(dataset_dir, TEST_DIR_NAME)
+save_dir = os.path.join(dataset_dir, f"{TEST_DIR_NAME}-predicted-{COLOR}")
 graylayer_dir = os.path.join(dataset_dir, "graylayer")
 weight_dir = os.path.join(dataset_dir, 'weights')
 image_dir = os.path.join(dataset_dir, 'dataset')
@@ -29,20 +31,21 @@ if not os.path.exists(save_dir):
 
 weights_file = os.path.join(weight_dir, f"{WEIGHT_NAME}.hdf5")
 model_figure_file = os.path.join(dataset_dir, f"{WEIGHT_NAME}-model.png")
-image_test_file = os.path.join(image_dir, image_filename)
 
-## unet_check
+# unet_check
 
 check_test1 = os.path.join(images_dir, 'E-1-1.jpg')
-check_label1 = os.path.join(labels_dir,'M-1-1.jpg')
+check_label1 = os.path.join(labels_dir, 'M-1-1.jpg')
 
-## Run ------------------------------------------------------------------------
+# Run ------------------------------------------------------------------------
+
 
 def layer_to_visualize(model, layer_name, image, save=None):
     layer = model.get_layer(layer_name)
     inputs = [keras.learning_phase()] + model.inputs
 
     _convout1_f = keras.function(inputs, [layer.output])
+
     def convout1_f(X):
         # The [0] is to disable the training phase flag
         return _convout1_f([0] + [X])
@@ -50,8 +53,8 @@ def layer_to_visualize(model, layer_name, image, save=None):
     convolutions = convout1_f(image)
     convolutions = np.squeeze(convolutions)
 
-    print ('Shape of conv:', convolutions.shape)
-    
+    print('Shape of conv:', convolutions.shape)
+
     n = convolutions.shape[0]
     n = int(np.ceil(np.sqrt(n)))
 
@@ -63,28 +66,33 @@ def layer_to_visualize(model, layer_name, image, save=None):
     #  ax.imshow(convolutions, cmap='gray')
 
     #  if save:
-        #  cv2.imwrite(os.path.join(graylayer_dir, f"{save}-graylayer.jpg"), convolutions)
+    #  cv2.imwrite(os.path.join(graylayer_dir, f"{save}-graylayer.jpg"), convolutions)
     #  else:
-        #  cv2.imshow('foo', convolutions)
-        #  cv2.waitKey(0)
-    
+    #  cv2.imshow('foo', convolutions)
+    #  cv2.waitKey(0)
+
     # Visualization of each filter of the layer
     #  fig = plt.figure(figsize=(12,8))
     #  for i in range(len(convolutions)):
-        #  print(convolutions[i].shape)
-        #  print(convolutions[i])
-        #  ax = fig.add_subplot(n,n,i+1)
-        #  ax.imshow(convolutions[i], cmap='gray')
+    #  print(convolutions[i].shape)
+    #  print(convolutions[i])
+    #  ax = fig.add_subplot(n,n,i+1)
+    #  ax.imshow(convolutions[i], cmap='gray')
 
 
 def test(model):
     testGene = testGenerator(test_dir, target_size=TARGET_SIZE, color=COLOR)
     if FLAG_PLOT_MODEL:
         plot_model(model, to_file=model_figure_file)
-    test_files = [name for name in os.listdir(test_dir) if os.path.isfile(os.path.join(test_dir, name))]
+    test_files = [
+        name for name in os.listdir(test_dir)
+        if os.path.isfile(os.path.join(test_dir, name))
+    ]
     num_test_files = len(test_files)
-    results = model.predict_generator(testGene, steps=num_test_files, verbose=1)
-    saveResult(save_dir, results, file_names=test_files, weights_name=WEIGHT_NAME)
+    results = model.predict_generator(
+        testGene, steps=num_test_files, verbose=1)
+    saveResult(
+        save_dir, results, file_names=test_files, weights_name=WEIGHT_NAME)
 
 
 def read_image(file_path):
@@ -99,8 +107,8 @@ def read_image(file_path):
     img = trans.resize(img, TARGET_SIZE)
     # Keras requires the image to be in 4D
     #  img = np.reshape(img,img.shape+(1,)) if (not flag_multi_class) else img
-    img = np.reshape(img,img.shape+(1,)) if COLOR == 'grayscale' else img
-    img = np.reshape(img,(1,)+img.shape)
+    img = np.reshape(img, img.shape + (1, )) if COLOR == 'grayscale' else img
+    img = np.reshape(img, (1, ) + img.shape)
     #  img = np.expand_dims(img, axis=0)
     return img
 
@@ -119,7 +127,7 @@ def import_image(filename, color):
     img = img / 255
     img = trans.resize(img, TARGET_SIZE)
     #  img = np.reshape(img,img.shape+(1,)) if (not flag_multi_class) else img
-    img = np.reshape(img,img.shape+(1,)) if color == 'grayscale' else img
+    img = np.reshape(img, img.shape + (1, )) if color == 'grayscale' else img
     #  img = np.reshape(img,(1,)+img.shape)
     return img
 
@@ -133,8 +141,10 @@ def read_images(images_dir, color):
         images.append(img)
     return images
 
+
 def bw_eval():
     model = create_model(model_name='unet_check')
+
     #  x = import_image(check_test1)
     #  y = import_image(check_label1)
     #  x_predicted = model.predict(x)
@@ -162,29 +172,57 @@ def bw_eval():
 
 def create_model(model_name):
     if COLOR == 'rgb':
-        input_size = INPUT_SIZE + (3,)
+        input_size = INPUT_SIZE + (3, )
     elif COLOR == 'gray':
-        input_size = INPUT_SIZE + (1,)
+        input_size = INPUT_SIZE + (1, )
     if model_name == 'unet':
-        model = unet(pretrained_weights=weights_file, input_size=input_size) # load pretrained model
-    elif model_name =='unet_check':
+        model = unet(
+            pretrained_weights=weights_file,
+            input_size=input_size)  # load pretrained model
+    elif model_name == 'unet_check':
         model = unet_check(input_size=input_size)
     return model
 
+
 def main():
-    model = create_model(model_name='unet')
+    #  model = create_model(model_name='unet')
+    model, _ = baseline_v6_multiclass(
+        pretrained_weights=weights_file,
+        num_classes=NUM_CLASSES,
+        input_size=INPUT_SIZE)
     #  test()
-    #  img = read_image(image_test_file)
-    #  layer_to_visualize(model, layer_name='conv2d_1', image=img) 
     file_list = [f for f in listdir(test_dir) if isfile(join(test_dir, f))]
     for file_name in file_list:
         file_path = os.path.join(test_dir, file_name)
         img = read_image(file_path)
-        layer_to_visualize(model, layer_name='conv2d_1', image=img, save=file_name)
+        layer_to_visualize(
+            model, layer_name='conv2d_1', image=img, save=file_name)
+
+
+def run_predict():
+    model, _ = baseline_v7_multiclass(
+        pretrained_weights=weights_file,
+        num_classes=NUM_CLASSES,
+        input_size=INPUT_SIZE)
+
+    test_files = [
+        name for name in os.listdir(test_dir)
+        if os.path.isfile(os.path.join(test_dir, name))
+    ]
+    num_test_files = len(test_files)
+    test_gen = testGenerator(test_dir, target_size=TARGET_SIZE, color=COLOR)
+    results = model.predict_generator(
+        test_gen, steps=num_test_files, verbose=1)
+    saveResult(
+        save_dir,
+        results,
+        file_names=test_files,
+        weights_name=WEIGHT_NAME,
+        flag_multi_class=True,
+        num_class=NUM_CLASSES)
 
 
 if __name__ == "__main__":
     #  main()
-    bw_eval()
-
-
+    #  bw_eval()
+    run_predict()
