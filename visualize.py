@@ -2,27 +2,21 @@ import os
 import csv
 import matplotlib.pyplot as plt
 
-DATASET_NAME = "eye-multiclass-baseline_v2-softmax-cce-lr1e_2"
+DATASET_NAME = "eye-multiclass-baseline_v6-softmax-cce-lr1e_3"
 DATASET_DIR_NAME = DATASET_NAME
 DATASET_PATH = os.path.join('data', DATASET_NAME)
 LOSS_ACC_FILE = os.path.join(DATASET_PATH, f"{DATASET_DIR_NAME}-loss-acc.csv")
-fig_acc_file = os.path.join(DATASET_PATH, f"{DATASET_DIR_NAME}-acc.png")
-fig_cce_file = os.path.join(DATASET_PATH, f"{DATASET_DIR_NAME}-cce.png")
-fig_mse_file = os.path.join(DATASET_PATH, f"{DATASET_DIR_NAME}-mse.png")
-fig_mae_file = os.path.join(DATASET_PATH, f"{DATASET_DIR_NAME}-mae.png")
-fig_mape_file = os.path.join(DATASET_PATH, f"{DATASET_DIR_NAME}-mape.png")
+fig_acc1_file = os.path.join(DATASET_PATH, f"{DATASET_DIR_NAME}-acc1.png")
+fig_acc2_file = os.path.join(DATASET_PATH, f"{DATASET_DIR_NAME}-acc2.png")
+fig_acc3_file = os.path.join(DATASET_PATH, f"{DATASET_DIR_NAME}-acc3.png")
 
 epoch_list = []
-acc_list = []
-val_acc_list = []
-loss_list = []
-val_loss_list = []
-mse_list = []
-val_mse_list = []
-mae_list = []
-val_mae_list = []
-mape_list = []
-val_mape_list = []
+acc1_list = []
+val_acc1_list = []
+acc2_list = []
+val_acc2_list = []
+acc3_list = []
+val_acc3_list = []
 
 first_line = False
 with open(LOSS_ACC_FILE) as csv_file:
@@ -32,18 +26,16 @@ with open(LOSS_ACC_FILE) as csv_file:
             print(f"Column names are {', '.join(row)}")
             first_line = True
         else:
-            print(f"\tepoch {row[0]} | {row[1]}, {row[2]}, {row[3]}, {row[4]}")
+            print(
+                f"\tepoch {row[0]} | {row[1]}, {row[2]}, {row[3]}, {row[4]}, {row[5]}, {row[6]}"
+            )
             epoch_list.append(float(row[0]))
-            acc_list.append(float(row[1]))
-            val_acc_list.append(float(row[2]))
-            loss_list.append(float(row[3]))
-            val_loss_list.append(float(row[4]))
-            mse_list.append(float(row[5]))
-            val_mse_list.append(float(row[6]))
-            mae_list.append(float(row[7]))
-            val_mae_list.append(float(row[8]))
-            mape_list.append(float(row[9]))
-            val_mape_list.append(float(row[10]))
+            acc1_list.append(float(row[1]))
+            val_acc1_list.append(float(row[2]))
+            acc2_list.append(float(row[3]))
+            val_acc2_list.append(float(row[4]))
+            acc3_list.append(float(row[5]))
+            val_acc3_list.append(float(row[6]))
 
 
 def plot_graph(figure_num, epoch_list, x, y, x_label, y_label, title, legend,
@@ -60,22 +52,15 @@ def plot_graph(figure_num, epoch_list, x, y, x_label, y_label, title, legend,
     fig_acc.savefig(save_name)
 
 
-plot_graph(1, epoch_list, acc_list, val_acc_list, 'Accuracy', 'Epoch',
-           f"{DATASET_DIR_NAME} - Model Accuracy",
-           ['Train Accuracy', 'Validation Accuracy'], fig_acc_file)
-plot_graph(2, epoch_list, loss_list, val_loss_list, 'Loss', 'Epoch',
-           f"{DATASET_DIR_NAME} - Model Loss\n(categorical crossentropy)",
-           ['Train Loss', 'Validation Loss'], fig_cce_file)
-plot_graph(3, epoch_list, mse_list, val_mse_list, 'Loss', 'Epoch',
-           f"{DATASET_DIR_NAME} - Model Loss\n(mean squared error)",
-           ['Train Loss', 'Validation Loss'], fig_mse_file)
-plot_graph(4, epoch_list, mae_list, val_mae_list, 'Loss', 'Epoch',
-           f"{DATASET_DIR_NAME} - Model Loss\n(mean absolute error)",
-           ['Train Loss', 'Validation Loss'], fig_mae_file)
-plot_graph(
-    5, epoch_list, mape_list, val_mape_list, 'Loss', 'Epoch',
-    f"{DATASET_DIR_NAME} - Model Loss\n(mean absolute percentage error)",
-    ['Train Loss', 'Validation Loss'], fig_mape_file)
+plot_graph(1, epoch_list, acc1_list, val_acc1_list, 'Loss', 'Epoch',
+           f"{DATASET_DIR_NAME} - Output 1 Model Accuracy",
+           ['Train Accuracy', 'Validation Accuracy'], fig_acc1_file)
+plot_graph(2, epoch_list, acc2_list, val_acc2_list, 'Loss', 'Epoch',
+           f"{DATASET_DIR_NAME} - Output 2 Model Accuracy",
+           ['Train Accuracy', 'Validation Accuracy'], fig_acc2_file)
+plot_graph(3, epoch_list, acc3_list, val_acc3_list, 'Loss', 'Epoch',
+           f"{DATASET_DIR_NAME} - Output 3 Model Accuracy",
+           ['Train Accuracy', 'Validation Accuracy'], fig_acc3_file)
 plt.show()
 
 #  # plot accuracy
