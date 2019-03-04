@@ -2,13 +2,13 @@ import os
 import csv
 import matplotlib.pyplot as plt
 
-DATASET_NAME = "eye-multiclass-baseline_v6-softmax-cce-lr1e_3"
+DATASET_NAME = "eye_v2-baseline_v7_multiclass-softmax-cce-lw_421-lr_1e_3"
 DATASET_DIR_NAME = DATASET_NAME
 DATASET_PATH = os.path.join('data', DATASET_NAME)
-LOSS_ACC_FILE = os.path.join(DATASET_PATH, f"{DATASET_DIR_NAME}-loss-acc.csv")
-fig_acc1_file = os.path.join(DATASET_PATH, f"{DATASET_DIR_NAME}-acc1.png")
-fig_acc2_file = os.path.join(DATASET_PATH, f"{DATASET_DIR_NAME}-acc2.png")
-fig_acc3_file = os.path.join(DATASET_PATH, f"{DATASET_DIR_NAME}-acc3.png")
+LOSS_ACC_FILE = os.path.join(DATASET_PATH, f"loss-acc.csv")
+fig_acc1_file = os.path.join(DATASET_PATH, f"acc1.png")
+fig_acc2_file = os.path.join(DATASET_PATH, f"acc2.png")
+fig_acc3_file = os.path.join(DATASET_PATH, f"acc3.png")
 
 epoch_list = []
 acc1_list = []
