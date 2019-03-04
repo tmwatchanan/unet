@@ -2,14 +2,12 @@ import os
 import datetime
 #  from model import unet_v2, ModelCheckpoint
 from model_baseline import baseline_v7_multiclass, ModelCheckpoint
-from data import trainGenerator, baseline_v7_test_generator, baseline_v7_save_result
-from keras.models import Model
-import numpy as np
+from baseline_v7_data import train_generator, test_generator, save_result
 
 TRAIN_FLAG = True
 DATASET_NAME = 'eye_v2'
 MODEL_NAME = 'baseline_v7_multiclass'
-MODEL_INFO = 'softmax-cce-lw_421'
+MODEL_INFO = 'just_test'  # 'softmax-cce-lw_421'
 LEARNING_RATE = "1e_3"
 EXPERIMENT_NAME = f"{DATASET_NAME}-{MODEL_NAME}-{MODEL_INFO}-lr_{LEARNING_RATE}"
 TEST_DIR_NAME = 'test'
@@ -118,7 +116,7 @@ data_gen_args = dict(
     zoom_range=0.1,
     horizontal_flip=True,
     fill_mode='nearest')
-train_gen = trainGenerator(
+train_gen = train_generator(
     BATCH_SIZE,
     training_set_dir,
     'images',
@@ -130,7 +128,7 @@ train_gen = trainGenerator(
     mask_color_mode=COLOR,
     flag_multi_class=True,
     num_class=NUM_CLASSES)
-validation_gen = trainGenerator(
+validation_gen = train_generator(
     BATCH_SIZE,
     validation_set_dir,
     'images',
@@ -204,21 +202,21 @@ for i in range(EPOCH_START, EPOCH_END):
             f.write(f"{loss_acc}\n")
 
     # test the model
-    test_gen_softmax = baseline_v7_test_generator(
+    test_gen_softmax = test_generator(
         test_set_dir, target_size=TARGET_SIZE, color=COLOR)
     softmax_results = model.predict_generator(
         test_gen_softmax, steps=num_test_files, verbose=1)
     #  for idx, item in enumerate(softmax_results):
     #  print(item[16384, :])
 
-    test_gen = baseline_v7_test_generator(
+    test_gen = test_generator(
         test_set_dir, target_size=TARGET_SIZE, color=COLOR)
     results = mask_model.predict_generator(
         test_gen, steps=num_test_files, verbose=1)
     print(test_files)
     print(f"EPOCH# {new_weights_name}")
     if (i == 1) or (i % 100 == 0):
-        baseline_v7_save_result(
+        save_result(
             predicted_set_dir,
             results,
             file_names=test_files,
