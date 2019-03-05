@@ -411,7 +411,7 @@ def baseline_v7_multiclass(pretrained_weights=None,
 
 
 def diff_iris_area(y_true, y_pred):
-    area = K.cast(K.pow(K.shape(y_true)[1], 2), 'float32')
+    area = K.cast(K.sum(y_true), 'float32')
     return K.pow((K.sum(y_pred) - area) / area, 2)
 
 
