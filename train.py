@@ -94,7 +94,8 @@ for root, dirs, files in os.walk(validation_images_set_dir):
     num_validation += len(files)
 if STEPS_PER_EPOCH is None:
     STEPS_PER_EPOCH = num_training
-print(num_training, num_validation)
+print(f"num_traning={num_training}")
+print(f"num_validation={num_validation}")
 
 if COLOR == 'rgb':
     input_size = INPUT_SIZE + (5, )
@@ -196,7 +197,7 @@ for i in range(EPOCH_START, EPOCH_END):
         test_set_dir, target_size=TARGET_SIZE, color=COLOR)
     results = mask_model.predict_generator(
         test_gen, steps=num_test_files, verbose=1)
-    print(test_files)
+    #  print(test_files)
     print(f"EPOCH# {new_weights_name}")
     if (i == 1) or (i % 100 == 0):
         save_result(
