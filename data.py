@@ -19,7 +19,7 @@ def adjust_data(img, mask, flag_multi_class, num_class, save_path,
                 target_size):
     if (flag_multi_class):
         img = img / 255
-        img = add_position_layers(img, target_size, 3)
+        img = add_position_layers(img, -1)
 
         #  img[0, :, :, 3] = X
         #  img[0, :, :, 4] = Y
@@ -137,7 +137,7 @@ def test_generator(test_path, target_size=(256, 256), color='rgb'):
         img = np.reshape(img,
                          img.shape + (1, )) if color == 'grayscale' else img
         img = np.reshape(img, (1, ) + img.shape)
-        img = add_position_layers(img, target_size, 3)
+        img = add_position_layers(img, -1)
         yield img
 
 

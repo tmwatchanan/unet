@@ -1,13 +1,14 @@
 import os
 import datetime
-#  from model import unet_v2, ModelCheckpoint
-from model_baseline import baseline_v7_multiclass, ModelCheckpoint
-from baseline_v7_data import train_generator, test_generator, save_result
+#  from model import unet_v2
+from model_baseline import baseline_v8_multiclass
+from baseline_v8_data import train_generator, test_generator, save_result, save_metrics
+from keras.callbacks import ModelCheckpoint
 
 TRAIN_FLAG = True
 DATASET_NAME = 'eye_v2'
-MODEL_NAME = 'baseline_v7_multiclass'
-MODEL_INFO = 'just_test'  # 'softmax-cce-lw_421'
+MODEL_NAME = 'baseline_v8_multiclass'
+MODEL_INFO = 'softmax-cce-lw_8421'
 LEARNING_RATE = "1e_3"
 EXPERIMENT_NAME = f"{DATASET_NAME}-{MODEL_NAME}-{MODEL_INFO}-lr_{LEARNING_RATE}"
 TEST_DIR_NAME = 'test'
@@ -147,7 +148,6 @@ test_files = [
 ]
 num_test_files = len(test_files)
 
-loss_acc_list = []
 if not os.path.exists(loss_acc_file):
     with open(loss_acc_file, "w") as f:
         f.write(
@@ -181,25 +181,8 @@ for i in range(EPOCH_START, EPOCH_END):
             validation_steps=num_validation,
             workers=0,
             use_multiprocessing=True)
-        #  print(history.history.keys()) // show dict of metrics in history
-        trained_output1_acc = history.history['output1_acc'][-1]
-        trained_val_output1_acc = history.history['val_output1_acc'][-1]
-        trained_output2_acc = history.history['output2_acc'][-1]
-        trained_val_output2_acc = history.history['val_output2_acc'][-1]
-        trained_output3_acc = history.history['output3_acc'][-1]
-        trained_val_output3_acc = history.history['val_output3_acc'][-1]
-        loss_acc = ','.join(
-            str(e) for e in [
-                i,
-                trained_output1_acc,
-                trained_val_output1_acc,
-                trained_output2_acc,
-                trained_val_output2_acc,
-                trained_output3_acc,
-                trained_val_output3_acc,
-            ])
-        with open(loss_acc_file, "a") as f:
-            f.write(f"{loss_acc}\n")
+        #  print(history.history.keys())  # show dict of metrics in history
+        save_metrics(loss_acc_file=loss_acc_file, history=history, epoch=i)
 
     # test the model
     test_gen_softmax = test_generator(

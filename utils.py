@@ -2,7 +2,8 @@ import numpy as np
 import cv2
 
 
-def add_position_layers(img, size, axis):
+def add_position_layers(img, axis):
+    size = (img.shape[1], img.shape[2])
     x_range = np.arange(size[0]) / (size[0] - 1)
     y_range = x_range.reshape(-1, 1) / (size[0] - 1)
     X = Y = np.zeros(shape=[size[0], size[1]])

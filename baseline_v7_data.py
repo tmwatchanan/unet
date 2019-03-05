@@ -26,7 +26,7 @@ def adjust_data(img, mask, flag_multi_class, num_class, save_path,
         #  img2 = trans.resize(img1, img2_shape)
         #  img3_shape = (int(img1.shape[0] / 4), int(img1.shape[0] / 4), -1)
         #  img3 = trans.resize(img1, img3_shape)
-        img1 = add_position_layers(img1, target_size, 3)
+        img1 = add_position_layers(img1, -1)
         #  print(img1.shape, img2.shape, img3.shape)
 
         mask = mask / 255
@@ -131,7 +131,7 @@ def test_generator(test_path, target_size=(256, 256), color='rgb'):
         img2 = np.reshape(img2, (1, ) + img2.shape)
         img3 = np.reshape(img3, (1, ) + img3.shape)
 
-        img1 = add_position_layers(img1, target_size, -1)
+        img1 = add_position_layers(img1, -1)
         yield [img1, img2, img3]
 
 
@@ -144,7 +144,7 @@ def save_result(save_path,
     for l in range(3):
         layer_output = npyfile[l]
         for i, item in enumerate(layer_output):
-            print(item.shape)
+            #  print(item.shape)
             if l == 0:
                 output_shape = (256, 256, num_class)
             elif l == 1:
@@ -152,7 +152,7 @@ def save_result(save_path,
             elif l == 2:
                 output_shape = (64, 64, num_class)
             item = np.reshape(item, output_shape)
-            print(item.shape)
+            #  print(item.shape)
             file_name = os.path.splitext(file_names[i])[0]
 
             visualized_img = max_rgb_filter(item)
