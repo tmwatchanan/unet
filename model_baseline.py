@@ -434,7 +434,6 @@ def baseline_v8_multiclass(pretrained_weights=None,
         padding='same',
         kernel_initializer='he_normal')(conv3_1)
     output3 = Dense(num_classes, activation='softmax', name='output3')(conv3_2)
-
     up3_2 = UpSampling2D(size=(2, 2))(conv3_2)
 
     input2_size = (int(input_size[0] / 2), int(input_size[1] / 2), 5)
@@ -476,8 +475,9 @@ def baseline_v8_multiclass(pretrained_weights=None,
         num_classes, activation='softmax', name='output1')(concat1_3)
 
     output_iris = Lambda(lambda x: x[:, :, :, 0])(output1)
+    output_iris = Activation('sigmoid')(output_iris)
     output_iris = Activation(
-        lambda x: relu(x, threshold=0.2), name='output_iris')(output_iris)
+        lambda x: relu(x, threshold=0.5), name='output_iris')(output_iris)
 
     model = mask_model = Model(
         inputs=[input1, input2, input3],
@@ -495,7 +495,7 @@ def baseline_v8_multiclass(pretrained_weights=None,
             'output1': 1,
             'output2': 2,
             'output3': 4,
-            'output_iris': 8,
+            'output_iris': 4,
         },
         metrics={
             'output1': 'accuracy',
