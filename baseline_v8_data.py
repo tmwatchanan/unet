@@ -5,6 +5,8 @@ import skimage.transform as trans
 import cv2
 from utils import add_position_layers, max_rgb_filter
 from keras.preprocessing.image import ImageDataGenerator
+import csv
+import matplotlib.pyplot as plt
 
 Iris = [0, 255, 0]
 Sclera = [255, 0, 0]
@@ -180,27 +182,154 @@ def save_metrics(loss_acc_file, history, epoch):
     if not os.path.exists(loss_acc_file):
         with open(loss_acc_file, "w") as f:
             f.write(
-                'epoch,output1_acc,val_output1_acc,output2_acc,val_output2_acc,output3_acc,val_output3_acc,output_iris_acc,val_output_iris_acc\n'
+                'epoch,output1_acc,val_output1_acc,output2_acc,val_output2_acc,output3_acc,val_output3_acc,output_iris_acc,val_output_iris_acc,output1_loss,val_output1_loss,output2_loss,val_output2_loss,output3_loss,val_output3_loss,output_iris_loss,val_output_iris_loss\n'
             )
-    trained_output1_acc = history.history['output1_acc'][-1]
-    trained_val_output1_acc = history.history['val_output1_acc'][-1]
-    trained_output2_acc = history.history['output2_acc'][-1]
-    trained_val_output2_acc = history.history['val_output2_acc'][-1]
-    trained_output3_acc = history.history['output3_acc'][-1]
-    trained_val_output3_acc = history.history['val_output3_acc'][-1]
-    trained_output_iris_acc = history.history['output_iris_acc'][-1]
-    trained_val_output_iris_acc = history.history['val_output_iris_acc'][-1]
+    output1_acc = history.history['output1_acc'][-1]
+    val_output1_acc = history.history['val_output1_acc'][-1]
+    output2_acc = history.history['output2_acc'][-1]
+    val_output2_acc = history.history['val_output2_acc'][-1]
+    output3_acc = history.history['output3_acc'][-1]
+    val_output3_acc = history.history['val_output3_acc'][-1]
+    output_iris_acc = history.history['output_iris_acc'][-1]
+    val_output_iris_acc = history.history['val_output_iris_acc'][-1]
+
+    output1_loss = history.history['output1_loss'][-1]
+    val_output1_loss = history.history['val_output1_loss'][-1]
+    output2_loss = history.history['output2_loss'][-1]
+    val_output2_loss = history.history['val_output2_loss'][-1]
+    output3_loss = history.history['output3_loss'][-1]
+    val_output3_loss = history.history['val_output3_loss'][-1]
+    output_iris_loss = history.history['output_iris_loss'][-1]
+    val_output_iris_loss = history.history['val_output_iris_loss'][-1]
+
     loss_acc = ','.join(
         str(e) for e in [
             epoch,
-            trained_output1_acc,
-            trained_val_output1_acc,
-            trained_output2_acc,
-            trained_val_output2_acc,
-            trained_output3_acc,
-            trained_val_output3_acc,
-            trained_output_iris_acc,
-            trained_val_output_iris_acc,
+            output1_acc,
+            val_output1_acc,
+            output2_acc,
+            val_output2_acc,
+            output3_acc,
+            val_output3_acc,
+            output_iris_acc,
+            val_output_iris_acc,
+            output1_loss,
+            val_output1_loss,
+            output2_loss,
+            val_output2_loss,
+            output3_loss,
+            val_output3_loss,
+            output_iris_loss,
+            val_output_iris_loss,
         ])
     with open(loss_acc_file, "a") as f:
         f.write(f"{loss_acc}\n")
+
+
+def plot_graph(figure_num, epoch_list, x, y, x_label, y_label, title, legend,
+               save_name):
+    fig_acc = plt.figure(figure_num)
+    plt.plot(epoch_list, x, 'b')
+    plt.plot(epoch_list, y, 'g')
+    plt.ylabel(x_label)
+    plt.xlabel(y_label)
+    plt.grid(color='k', linestyle='-', linewidth=1)
+    #  plt.ylim(0, 1.0)
+    plt.title(title)
+    plt.legend(legend, loc='upper left')
+    fig_acc.savefig(save_name)
+
+
+def plot_loss_acc(dataset_name, loss_acc_file):
+    # define paths
+    dataset_path = os.path.join('data', dataset_name)
+    loss_acc_file = os.path.join(dataset_path, f"loss-acc.csv")
+
+    graphs_dir = os.path.join(dataset_path, 'graphs')
+    if not os.path.exists(graphs_dir):
+        os.makedirs(graphs_dir)
+
+    output1_acc_file = os.path.join(graphs_dir, "output1_acc.png")
+    output2_acc_file = os.path.join(graphs_dir, "output2_acc.png")
+    output3_acc_file = os.path.join(graphs_dir, "output3_acc.png")
+    output_iris_acc_file = os.path.join(graphs_dir, "output_iris_acc.png")
+    output1_loss_file = os.path.join(graphs_dir, "output1_loss.png")
+    output2_loss_file = os.path.join(graphs_dir, "output2_loss.png")
+    output3_loss_file = os.path.join(graphs_dir, "output3_loss.png")
+    output_iris_loss_file = os.path.join(graphs_dir, "output_iris_loss.png")
+
+    # prepare lists for storing histories
+    epoch_list = []
+    output1_acc_list = val_output1_acc_list = []
+    output2_acc_list = val_output2_acc_list = []
+    output3_acc_list = val_output3_acc_list = []
+    output_iris_acc_list = val_output_iris_acc_list = []
+    output1_loss_list = val_output1_loss_list = []
+    output2_loss_list = val_output2_loss_list = []
+    output3_loss_list = val_output3_loss_list = []
+    output_iris_diff_iris_area_list = val_output_iris_diff_iris_area_list = []
+
+    # read loss-acc csv file
+    first_line = True
+    with open(loss_acc_file) as csv_file:
+        csv_reader = csv.reader(csv_file, delimiter=',')
+        for row in csv_reader:
+            if first_line:
+                print(f"Column names are {', '.join(row)}")
+                first_line = False
+            else:
+                print(
+                    f"\tepoch {row[0]} | {row[1]}, {row[2]}, {row[3]}, {row[4]}, {row[5]}, {row[6]}, {row[7]}, {row[8]}, {row[9]}, {row[10]}, {row[11]}, {row[12]}, {row[13]}, {row[14]}, {row[15]}, {row[16]}"
+                )
+                epoch_list.append(float(row[0]))
+                output1_acc_list.append(float(row[1]))
+                val_output1_acc_list.append(float(row[2]))
+                output2_acc_list.append(float(row[3]))
+                val_output2_acc_list.append(float(row[4]))
+                output3_acc_list.append(float(row[5]))
+                val_output3_acc_list.append(float(row[6]))
+                output_iris_acc_list.append(float(row[7]))
+                val_output_iris_acc_list.append(float(row[8]))
+                output1_loss_list.append(float(row[9]))
+                val_output1_loss_list.append(float(row[10]))
+                output2_loss_list.append(float(row[11]))
+                val_output2_loss_list.append(float(row[12]))
+                output3_loss_list.append(float(row[13]))
+                val_output3_loss_list.append(float(row[14]))
+                output_iris_loss_list.append(float(row[15]))
+                val_output_iris_loss_list.append(float(row[16]))
+
+    # plot graphs
+    plot_graph(1, epoch_list, output1_acc_list, val_output1_acc_list,
+               'Accuracy', 'Epoch',
+               f"{dataset_name} - Output 1 Model Accuracy",
+               ['Train Accuracy', 'Validation Accuracy'], output1_acc_file)
+    plot_graph(2, epoch_list, output2_acc_list, val_output2_acc_list,
+               'Accuracy', 'Epoch',
+               f"{dataset_name} - Output 2 Model Accuracy",
+               ['Train Accuracy', 'Validation Accuracy'], output2_acc_file)
+    plot_graph(3, epoch_list, output3_acc_list, val_output3_acc_list,
+               'Accuracy', 'Epoch',
+               f"{dataset_name} - Output 3 Model Accuracy",
+               ['Train Accuracy', 'Validation Accuracy'], output3_acc_file)
+    plot_graph(4, epoch_list, output_iris_acc_list, val_output_iris_acc_list,
+               'Accuracy', 'Epoch',
+               f"{dataset_name} - Output Iris Model Accuracy",
+               ['Train Accuracy', 'Validation Accuracy'], output_iris_acc_file)
+
+    plot_graph(5, epoch_list, output1_loss_list, val_output1_loss_list, 'Loss',
+               'Epoch', f"{dataset_name} - Output 1 Model Loss (cce)",
+               ['Train Loss', 'Validation Loss'], output1_loss_file)
+    plot_graph(6, epoch_list, output2_loss_list, val_output2_loss_list, 'Loss',
+               'Epoch', f"{dataset_name} - Output 2 Model Loss (cce)",
+               ['Train Loss', 'Validation Loss'], output2_loss_file)
+    plot_graph(7, epoch_list, output3_loss_list, val_output3_loss_list, 'Loss',
+               'Epoch', f"{dataset_name} - Output 3 Model Loss (cce)",
+               ['Train Loss', 'Validation Loss'], output3_loss_file)
+    plot_graph(8, epoch_list, output_iris_loss_list, val_output_iris_loss_list,
+               'Loss', 'Epoch',
+               f"{dataset_name} - Output Iris Model Loss (diff_iris_area)",
+               ['Train Loss', 'Validation Loss'], output_iris_loss_file)
+
+    # immediately show plotted graphs
+    plt.show()

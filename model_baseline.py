@@ -1,6 +1,5 @@
 from keras.models import Model
-from keras.layers import Input, Conv2D, Reshape, Permute, Activation, Flatten, MaxPooling2D, Concatenate, UpSampling2D, Dense, Lambda
-from keras.activations import relu
+from keras.layers import Input, Conv2D, Reshape, Permute, Activation, Flatten, MaxPooling2D, Concatenate, UpSampling2D, Dense, Lambda, ThresholdedReLU
 from keras.optimizers import Adam
 from keras import backend as K
 
@@ -411,8 +410,10 @@ def baseline_v7_multiclass(pretrained_weights=None,
 
 
 def diff_iris_area(y_true, y_pred):
-    area = K.cast(K.sum(y_true), 'float32')
-    return K.pow((K.sum(y_pred) - area) / area, 2)
+    area_true = K.cast(K.sum(y_true, axis=[1, 2]), 'float32')
+    area_pred = K.sum(y_pred, axis=[1, 2])
+    normalized_diff = (area_true - area_pred) / area_true
+    return K.mean(K.square(normalized_diff), axis=0)
 
 
 def baseline_v8_multiclass(pretrained_weights=None,
@@ -475,9 +476,7 @@ def baseline_v8_multiclass(pretrained_weights=None,
         num_classes, activation='softmax', name='output1')(concat1_3)
 
     output_iris = Lambda(lambda x: x[:, :, :, 0])(output1)
-    output_iris = Activation('sigmoid')(output_iris)
-    output_iris = Activation(
-        lambda x: relu(x, threshold=0.5), name='output_iris')(output_iris)
+    output_iris = ThresholdedReLU(theta=0.5, name='output_iris')(output_iris)
 
     model = mask_model = Model(
         inputs=[input1, input2, input3],
@@ -498,10 +497,10 @@ def baseline_v8_multiclass(pretrained_weights=None,
             'output_iris': 4,
         },
         metrics={
-            'output1': 'accuracy',
-            'output2': 'accuracy',
-            'output3': 'accuracy',
-            'output_iris': 'accuracy',
+            'output1': ['accuracy'],
+            'output2': ['accuracy'],
+            'output3': ['accuracy'],
+            'output_iris': ['accuracy', diff_iris_area],
         })
 
     #  model.summary()

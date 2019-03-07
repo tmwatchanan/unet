@@ -2,7 +2,7 @@ import os
 import datetime
 #  from model import unet_v2
 from model_baseline import baseline_v8_multiclass
-from baseline_v8_data import train_generator, test_generator, save_result, save_metrics
+from baseline_v8_data import train_generator, test_generator, save_result, save_metrics, plot_loss_acc
 from keras.callbacks import ModelCheckpoint
 
 TRAIN_FLAG = True
@@ -149,12 +149,6 @@ test_files = [
 ]
 num_test_files = len(test_files)
 
-if not os.path.exists(loss_acc_file):
-    with open(loss_acc_file, "w") as f:
-        f.write(
-            'epoch,output1_acc,val_output1_acc,output2_acc,val_output2_acc,output3_acc,val_output3_acc\n'
-        )
-
 # for each epoch
 for i in range(EPOCH_START, EPOCH_END):
     # train the model
@@ -182,7 +176,7 @@ for i in range(EPOCH_START, EPOCH_END):
             validation_steps=num_validation,
             workers=0,
             use_multiprocessing=True)
-        #  print(history.history.keys())  # show dict of metrics in history
+        print(history.history.keys())  # show dict of metrics in history
         save_metrics(loss_acc_file=loss_acc_file, history=history, epoch=i)
 
     # test the model
@@ -209,3 +203,5 @@ for i in range(EPOCH_START, EPOCH_END):
             num_class=NUM_CLASSES)
     if not TRAIN_FLAG:
         break
+
+plot_loss_acc(EXPERIMENT_NAME, loss_acc_file)
