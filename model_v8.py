@@ -551,9 +551,11 @@ def plot_graph(figure_num, epoch_list, x, y, x_label, y_label, title, legend,
     fig_acc.savefig(save_name)
 
 
-def plot_loss_acc(dataset_name, loss_acc_file):
+@cli.command()
+@click.argument('experiment_name', required=False)
+def plot(experiment_name):
     # define paths
-    dataset_path = os.path.join('data', dataset_name)
+    dataset_path = os.path.join('data', experiment_name)
     loss_acc_file = os.path.join(dataset_path, f"loss-acc.csv")
 
     graphs_dir = os.path.join(dataset_path, 'graphs')
@@ -571,14 +573,22 @@ def plot_loss_acc(dataset_name, loss_acc_file):
 
     # prepare lists for storing histories
     epoch_list = []
-    output1_acc_list = val_output1_acc_list = []
-    output2_acc_list = val_output2_acc_list = []
-    output3_acc_list = val_output3_acc_list = []
-    output_iris_acc_list = val_output_iris_acc_list = []
-    output1_loss_list = val_output1_loss_list = []
-    output2_loss_list = val_output2_loss_list = []
-    output3_loss_list = val_output3_loss_list = []
-    output_iris_loss_list = val_output_iris_loss_list = []
+    output1_acc_list = []
+    val_output1_acc_list = []
+    output2_acc_list = []
+    val_output2_acc_list = []
+    output3_acc_list = []
+    val_output3_acc_list = []
+    output_iris_acc_list = []
+    val_output_iris_acc_list = []
+    output1_loss_list = []
+    val_output1_loss_list = []
+    output2_loss_list = []
+    val_output2_loss_list = []
+    output3_loss_list = []
+    val_output3_loss_list = []
+    output_iris_loss_list = []
+    val_output_iris_loss_list = []
 
     # read loss-acc csv file
     first_line = True
@@ -613,33 +623,32 @@ def plot_loss_acc(dataset_name, loss_acc_file):
     # plot graphs
     plot_graph(1, epoch_list, output1_acc_list, val_output1_acc_list,
                'Accuracy', 'Epoch',
-               f"{dataset_name} - Output 1 Model Accuracy",
+               f"{experiment_name} - Output 1 Model Accuracy",
                ['Train Accuracy', 'Validation Accuracy'], output1_acc_file)
     plot_graph(2, epoch_list, output2_acc_list, val_output2_acc_list,
                'Accuracy', 'Epoch',
-               f"{dataset_name} - Output 2 Model Accuracy",
+               f"{experiment_name} - Output 2 Model Accuracy",
                ['Train Accuracy', 'Validation Accuracy'], output2_acc_file)
     plot_graph(3, epoch_list, output3_acc_list, val_output3_acc_list,
                'Accuracy', 'Epoch',
-               f"{dataset_name} - Output 3 Model Accuracy",
+               f"{experiment_name} - Output 3 Model Accuracy",
                ['Train Accuracy', 'Validation Accuracy'], output3_acc_file)
     plot_graph(4, epoch_list, output_iris_acc_list, val_output_iris_acc_list,
                'Accuracy', 'Epoch',
-               f"{dataset_name} - Output Iris Model Accuracy",
+               f"{experiment_name} - Output Iris Model Accuracy",
                ['Train Accuracy', 'Validation Accuracy'], output_iris_acc_file)
-
     plot_graph(5, epoch_list, output1_loss_list, val_output1_loss_list, 'Loss',
-               'Epoch', f"{dataset_name} - Output 1 Model Loss (cce)",
+               'Epoch', f"{experiment_name} - Output 1 Model Loss (cce)",
                ['Train Loss', 'Validation Loss'], output1_loss_file)
     plot_graph(6, epoch_list, output2_loss_list, val_output2_loss_list, 'Loss',
-               'Epoch', f"{dataset_name} - Output 2 Model Loss (cce)",
+               'Epoch', f"{experiment_name} - Output 2 Model Loss (cce)",
                ['Train Loss', 'Validation Loss'], output2_loss_file)
     plot_graph(7, epoch_list, output3_loss_list, val_output3_loss_list, 'Loss',
-               'Epoch', f"{dataset_name} - Output 3 Model Loss (cce)",
+               'Epoch', f"{experiment_name} - Output 3 Model Loss (cce)",
                ['Train Loss', 'Validation Loss'], output3_loss_file)
     plot_graph(8, epoch_list, output_iris_loss_list, val_output_iris_loss_list,
                'Loss', 'Epoch',
-               f"{dataset_name} - Output Iris Model Loss (diff_iris_area)",
+               f"{experiment_name} - Output Iris Model Loss (diff_iris_area)",
                ['Train Loss', 'Validation Loss'], output_iris_loss_file)
 
     # immediately show plotted graphs
