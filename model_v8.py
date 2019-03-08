@@ -32,7 +32,6 @@ def cli():
 @cli.command()
 def train():
     click.echo('> `train` function')
-    TRAIN_FLAG = True
     DATASET_NAME = 'eye_v2'
     MODEL_NAME = 'baseline_v8_multiclass'
     MODEL_INFO = 'softmax-cce-lw_8421'
@@ -44,7 +43,7 @@ def train():
     EPOCH_END = 9001
     BATCH_SIZE = 6  # 10
     STEPS_PER_EPOCH = 1  # None
-    INPUT_SIZE = (256, 256)
+    INPUT_SIZE = (256, 256, 5)
     TARGET_SIZE = (256, 256)
     NUM_CLASSES = 3
     COLOR = 'rgb'  # rgb, grayscale
@@ -81,6 +80,8 @@ def train():
     if not os.path.exists(mask_set_dir):
         os.makedirs(mask_set_dir)
 
+    learning_rate = float(LEARNING_RATE.replace("_", "-"))
+
     def save_experiment_settings_file():
         with open(experiments_setting_file, "a") as f:
             current_datetime = datetime.datetime.now().strftime(
@@ -100,8 +101,7 @@ def train():
             f.write(f"COLOR={COLOR}\n")
             f.write(f"=======================\n")
 
-    if TRAIN_FLAG:
-        save_experiment_settings_file()
+    save_experiment_settings_file()
 
     model_filename = "{}.hdf5"
     if CONTINUED_WEIGHT:
@@ -122,15 +122,10 @@ def train():
     print(f"num_traning={num_training}")
     print(f"num_validation={num_validation}")
 
-    if COLOR == 'rgb':
-        input_size = INPUT_SIZE + (5, )
-    elif COLOR == 'grayscale':
-        input_size = INPUT_SIZE + (1, )
-    learning_rate = float(LEARNING_RATE.replace("_", "-"))
     model = create_model(
         pretrained_weights=trained_weights_file,
         num_classes=NUM_CLASSES,
-        input_size=input_size,
+        input_size=INPUT_SIZE,
         learning_rate=learning_rate)  # load pretrained model
 
     #  model_file += "-{epoch:02d}-{val_acc:.2f}.hdf5"
@@ -178,31 +173,30 @@ def train():
     for i in range(EPOCH_START, EPOCH_END):
         # train the model
         new_weights_name = str(i)
-        if TRAIN_FLAG:
-            new_weights_file = model_filename.format(new_weights_name)
-            new_weights_file = os.path.join(weights_dir, new_weights_file)
-            callbacks = None
-            if (i == 1) or (i % 100 == 0):
-                model_checkpoint = ModelCheckpoint(
-                    filepath=new_weights_file,
-                    monitor='val_acc',
-                    mode='auto',
-                    verbose=1,
-                    save_best_only=False,
-                    save_weights_only=False,
-                    period=1)
-                callbacks = [model_checkpoint]
-            history = model.fit_generator(
-                train_gen,
-                steps_per_epoch=STEPS_PER_EPOCH,
-                epochs=1,
-                callbacks=callbacks,
-                validation_data=validation_gen,
-                validation_steps=num_validation,
-                workers=0,
-                use_multiprocessing=True)
-            #  print(history.history.keys())  # show dict of metrics in history
-            save_metrics(loss_acc_file=loss_acc_file, history=history, epoch=i)
+        new_weights_file = model_filename.format(new_weights_name)
+        new_weights_file = os.path.join(weights_dir, new_weights_file)
+        callbacks = None
+        if (i == 1) or (i % 100 == 0):
+            model_checkpoint = ModelCheckpoint(
+                filepath=new_weights_file,
+                monitor='val_acc',
+                mode='auto',
+                verbose=1,
+                save_best_only=False,
+                save_weights_only=False,
+                period=1)
+            callbacks = [model_checkpoint]
+        history = model.fit_generator(
+            train_gen,
+            steps_per_epoch=STEPS_PER_EPOCH,
+            epochs=1,
+            callbacks=callbacks,
+            validation_data=validation_gen,
+            validation_steps=num_validation,
+            workers=0,
+            use_multiprocessing=True)
+        #  print(history.history.keys())  # show dict of metrics in history
+        save_metrics(loss_acc_file=loss_acc_file, history=history, epoch=i)
 
         # test the model
         test_gen = test_generator(
@@ -219,8 +213,6 @@ def train():
                 weights_name=new_weights_name,
                 flag_multi_class=True,
                 num_class=NUM_CLASSES)
-        if not TRAIN_FLAG:
-            break
 
     plot_loss_acc(EXPERIMENT_NAME, loss_acc_file)
 
@@ -653,6 +645,81 @@ def plot(experiment_name):
 
     # immediately show plotted graphs
     plt.show()
+
+
+@cli.command()
+def test():
+    EXPERIMENT_NAME = "eye_v2-baseline_v8_multiclass-softmax-cce-lw_8421-lr_1e_3"
+    TEST_DIR_NAME = 'blind_test'
+    CONTINUED_WEIGHT = "100"
+    BATCH_SIZE = 6  # 10
+    INPUT_SIZE = (256, 256, 5)
+    TARGET_SIZE = (256, 256)
+    NUM_CLASSES = 3
+    COLOR = 'rgb'  # rgb, grayscale
+
+    if BATCH_SIZE > 10:
+        answer = input(
+            f"Do you want to continue using BATCH_SIZE={BATCH_SIZE} [y/n] : ")
+        if not answer or answer[0].lower() != 'y':
+            print("You can change the value of BATCH_SIZE in this file")
+            exit(1)
+
+    dataset_path = os.path.join('data', EXPERIMENT_NAME)
+    weights_dir = os.path.join(dataset_path, 'weights')
+    test_set_dir = os.path.join(dataset_path, TEST_DIR_NAME)
+    predicted_set_dir = os.path.join(dataset_path,
+                                     f"{TEST_DIR_NAME}-predicted")
+    prediction_setting_file = os.path.join(predicted_set_dir,
+                                           'prediction_settings.txt')
+
+    if not os.path.exists(predicted_set_dir):
+        os.makedirs(predicted_set_dir)
+
+    def save_prediction_settings_file():
+        with open(prediction_setting_file, "w") as f:
+            current_datetime = datetime.datetime.now().strftime(
+                "%Y-%m-%d %H:%M:%S")
+            f.write(f"{current_datetime}\n")
+            f.write(f"EXPERIMENT_NAME={EXPERIMENT_NAME}\n")
+            f.write(f"TEST_DIR_NAME={TEST_DIR_NAME}\n")
+            f.write(f"CONTINUE_WEIGHT={CONTINUED_WEIGHT}\n")
+            f.write(f"BATCH_SIZE={BATCH_SIZE}\n")
+            f.write(f"INPUT_SIZE={INPUT_SIZE}\n")
+            f.write(f"TARGET_SIZE={TARGET_SIZE}\n")
+            f.write(f"NUM_CLASSES={NUM_CLASSES}\n")
+            f.write(f"=======================\n")
+
+    save_prediction_settings_file()
+
+    trained_weights_filename = f"{CONTINUED_WEIGHT}.hdf5"
+    trained_weights_file = os.path.join(weights_dir, trained_weights_filename)
+
+    # load pretrained model
+    model = create_model(
+        pretrained_weights=trained_weights_file,
+        num_classes=NUM_CLASSES,
+        input_size=INPUT_SIZE)
+
+    test_files = [
+        name for name in os.listdir(test_set_dir)
+        if os.path.isfile(os.path.join(test_set_dir, name))
+    ]
+    #  print(test_files)
+    num_test_files = len(test_files)
+
+    # test the model
+    test_gen = test_generator(
+        test_set_dir, target_size=TARGET_SIZE, color=COLOR)
+    results = model.predict_generator(
+        test_gen, steps=num_test_files, verbose=1)
+    save_result(
+        predicted_set_dir,
+        results,
+        file_names=test_files,
+        weights_name=CONTINUED_WEIGHT,
+        flag_multi_class=True,
+        num_class=NUM_CLASSES)
 
 
 if __name__ == '__main__':
