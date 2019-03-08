@@ -648,8 +648,9 @@ def plot(experiment_name):
 
 
 @cli.command()
-def test():
-    EXPERIMENT_NAME = "eye_v2-baseline_v8_multiclass-softmax-cce-lw_8421-lr_1e_3"
+@click.argument('experiment_name')
+def test(experiment_name):
+    #  EXPERIMENT_NAME = "eye_v2-baseline_v8_multiclass-softmax-cce-lw_8421-lr_1e_3"
     TEST_DIR_NAME = 'blind_test'
     CONTINUED_WEIGHT = "100"
     BATCH_SIZE = 6  # 10
@@ -665,7 +666,7 @@ def test():
             print("You can change the value of BATCH_SIZE in this file")
             exit(1)
 
-    dataset_path = os.path.join('data', EXPERIMENT_NAME)
+    dataset_path = os.path.join('data', experiment_name)
     weights_dir = os.path.join(dataset_path, 'weights')
     test_set_dir = os.path.join(dataset_path, TEST_DIR_NAME)
     predicted_set_dir = os.path.join(dataset_path,
@@ -681,7 +682,7 @@ def test():
             current_datetime = datetime.datetime.now().strftime(
                 "%Y-%m-%d %H:%M:%S")
             f.write(f"{current_datetime}\n")
-            f.write(f"EXPERIMENT_NAME={EXPERIMENT_NAME}\n")
+            f.write(f"experiment_name={experiment_name}\n")
             f.write(f"TEST_DIR_NAME={TEST_DIR_NAME}\n")
             f.write(f"CONTINUE_WEIGHT={CONTINUED_WEIGHT}\n")
             f.write(f"BATCH_SIZE={BATCH_SIZE}\n")
