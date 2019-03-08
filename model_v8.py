@@ -1,9 +1,11 @@
 import click
+import warnings
 import datetime
 import numpy as np
 import os
 import csv
 import cv2
+from termcolor import colored, cprint
 from utils import add_position_layers, max_rgb_filter
 import skimage.io as io
 import skimage.transform as trans
@@ -463,22 +465,25 @@ def save_result(save_path,
             visualized_img = max_rgb_filter(item)
             visualized_img[visualized_img > 0] = 1
 
-            io.imsave(
-                os.path.join(save_path,
-                             f"{file_name}-{weights_name}-{l+1}-merged.png"),
-                visualized_img)
-            io.imsave(
-                os.path.join(save_path,
-                             f"{file_name}-{weights_name}-{l+1}-0.png"),
-                item[:, :, 0])
-            io.imsave(
-                os.path.join(save_path,
-                             f"{file_name}-{weights_name}-{l+1}-1.png"),
-                item[:, :, 1])
-            io.imsave(
-                os.path.join(save_path,
-                             f"{file_name}-{weights_name}-{l+1}-2.png"),
-                item[:, :, 2])
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                io.imsave(
+                    os.path.join(
+                        save_path,
+                        f"{file_name}-{weights_name}-{l+1}-merged.png"),
+                    visualized_img)
+                io.imsave(
+                    os.path.join(save_path,
+                                 f"{file_name}-{weights_name}-{l+1}-0.png"),
+                    item[:, :, 0])
+                io.imsave(
+                    os.path.join(save_path,
+                                 f"{file_name}-{weights_name}-{l+1}-1.png"),
+                    item[:, :, 1])
+                io.imsave(
+                    os.path.join(save_path,
+                                 f"{file_name}-{weights_name}-{l+1}-2.png"),
+                    item[:, :, 2])
 
 
 def save_metrics(loss_acc_file, history, epoch):
@@ -650,14 +655,23 @@ def plot(experiment_name):
 @cli.command()
 @click.argument('experiment_name')
 def test(experiment_name):
-    #  EXPERIMENT_NAME = "eye_v2-baseline_v8_multiclass-softmax-cce-lw_8421-lr_1e_3"
-    TEST_DIR_NAME = 'blind_test'
+    cprint(f"> Running `test` command on ", color='green', end='')
+    cprint(f"{experiment_name}", color='green', attrs=['bold'], end='')
+    cprint(f" experiment", color='green')
+    #  experiment_name = "eye_v2-baseline_v8_multiclass-softmax-cce-lw_8421-lr_1e_3"
     CONTINUED_WEIGHT = "100"
+    TEST_DIR_NAME = 'blind_test'
     BATCH_SIZE = 6  # 10
     INPUT_SIZE = (256, 256, 5)
     TARGET_SIZE = (256, 256)
     NUM_CLASSES = 3
     COLOR = 'rgb'  # rgb, grayscale
+
+    cprint(f"The weight at epoch#", color='green', end='')
+    cprint(f"{CONTINUED_WEIGHT}", color='green', attrs=['bold'], end='')
+    cprint(f" will be used to predict the images in ", color='green', end='')
+    cprint(f"{TEST_DIR_NAME}", color='green', attrs=['bold'], end='')
+    cprint(f" directory", color='green')
 
     if BATCH_SIZE > 10:
         answer = input(
@@ -669,8 +683,8 @@ def test(experiment_name):
     dataset_path = os.path.join('data', experiment_name)
     weights_dir = os.path.join(dataset_path, 'weights')
     test_set_dir = os.path.join(dataset_path, TEST_DIR_NAME)
-    predicted_set_dir = os.path.join(dataset_path,
-                                     f"{TEST_DIR_NAME}-predicted")
+    predicted_set_dirname = f"{TEST_DIR_NAME}-predicted"
+    predicted_set_dir = os.path.join(dataset_path, predicted_set_dirname)
     prediction_setting_file = os.path.join(predicted_set_dir,
                                            'prediction_settings.txt')
 
@@ -721,6 +735,11 @@ def test(experiment_name):
         weights_name=CONTINUED_WEIGHT,
         flag_multi_class=True,
         num_class=NUM_CLASSES)
+    cprint(
+        f"> `test` command was successfully run, the predicted result will be in ",
+        color='green',
+        end='')
+    cprint(f"{predicted_set_dirname}", color='green', attrs=['bold'])
 
 
 if __name__ == '__main__':
