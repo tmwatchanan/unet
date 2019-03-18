@@ -91,7 +91,7 @@ def train():
             f.write(f"{current_datetime}\n")
             f.write(f"MODEL_NAME={MODEL_NAME}\n")
             f.write(f"MODEL_INFO={MODEL_INFO}\n")
-            f.write(f"CONTINUE_WEIGHT={CONTINUED_WEIGHT}\n")
+            f.write(f"CONTINUED_WEIGHT={CONTINUED_WEIGHT}\n")
             f.write(f"EPOCH_START={EPOCH_START}\n")
             f.write(f"EPOCH_END={EPOCH_END}\n")
             f.write(f"BATCH_SIZE={BATCH_SIZE}\n")
@@ -654,13 +654,15 @@ def plot(experiment_name):
 
 @cli.command()
 @click.argument('experiment_name')
-def test(experiment_name):
+@click.argument('weight')
+@click.argument('test_dir_name')
+def test(experiment_name, weight, test_dir_name):
     cprint(f"> Running `test` command on ", color='green', end='')
     cprint(f"{experiment_name}", color='green', attrs=['bold'], end='')
     cprint(f" experiment", color='green')
     #  experiment_name = "eye_v2-baseline_v8_multiclass-softmax-cce-lw_8421-lr_1e_3"
-    CONTINUED_WEIGHT = "100"
-    TEST_DIR_NAME = 'blind_test'
+    #  weight = "98800"
+    #  test_dir_name = 'blind_conj'
     BATCH_SIZE = 6  # 10
     INPUT_SIZE = (256, 256, 5)
     TARGET_SIZE = (256, 256)
@@ -668,9 +670,9 @@ def test(experiment_name):
     COLOR = 'rgb'  # rgb, grayscale
 
     cprint(f"The weight at epoch#", color='green', end='')
-    cprint(f"{CONTINUED_WEIGHT}", color='green', attrs=['bold'], end='')
+    cprint(f"{weight}", color='green', attrs=['bold'], end='')
     cprint(f" will be used to predict the images in ", color='green', end='')
-    cprint(f"{TEST_DIR_NAME}", color='green', attrs=['bold'], end='')
+    cprint(f"{test_dir_name}", color='green', attrs=['bold'], end='')
     cprint(f" directory", color='green')
 
     if BATCH_SIZE > 10:
@@ -682,8 +684,8 @@ def test(experiment_name):
 
     dataset_path = os.path.join('data', experiment_name)
     weights_dir = os.path.join(dataset_path, 'weights')
-    test_set_dir = os.path.join(dataset_path, TEST_DIR_NAME)
-    predicted_set_dirname = f"{TEST_DIR_NAME}-predicted"
+    test_set_dir = os.path.join(dataset_path, test_dir_name)
+    predicted_set_dirname = f"{test_dir_name}-predicted"
     predicted_set_dir = os.path.join(dataset_path, predicted_set_dirname)
     prediction_setting_file = os.path.join(predicted_set_dir,
                                            'prediction_settings.txt')
@@ -697,8 +699,8 @@ def test(experiment_name):
                 "%Y-%m-%d %H:%M:%S")
             f.write(f"{current_datetime}\n")
             f.write(f"experiment_name={experiment_name}\n")
-            f.write(f"TEST_DIR_NAME={TEST_DIR_NAME}\n")
-            f.write(f"CONTINUE_WEIGHT={CONTINUED_WEIGHT}\n")
+            f.write(f"test_dir_name={test_dir_name}\n")
+            f.write(f"weight={weight}\n")
             f.write(f"BATCH_SIZE={BATCH_SIZE}\n")
             f.write(f"INPUT_SIZE={INPUT_SIZE}\n")
             f.write(f"TARGET_SIZE={TARGET_SIZE}\n")
@@ -707,7 +709,7 @@ def test(experiment_name):
 
     save_prediction_settings_file()
 
-    trained_weights_filename = f"{CONTINUED_WEIGHT}.hdf5"
+    trained_weights_filename = f"{weight}.hdf5"
     trained_weights_file = os.path.join(weights_dir, trained_weights_filename)
 
     # load pretrained model
@@ -732,7 +734,7 @@ def test(experiment_name):
         predicted_set_dir,
         results,
         file_names=test_files,
-        weights_name=CONTINUED_WEIGHT,
+        weights_name=weight,
         flag_multi_class=True,
         num_class=NUM_CLASSES)
     cprint(
