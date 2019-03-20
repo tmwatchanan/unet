@@ -34,14 +34,6 @@ def cli():
     #  click.echo("This is main function echoed by Click")
     pass
 
-    #  save_result(
-    #  predicted_set_dir,
-    #  results,
-    #  file_names=test_files,
-    #  weights_name=new_weights_file,
-    #  flag_multi_class=True,
-    #  num_class=NUM_CLASSES)
-
 
 class PredictOutput(Callback):
     def __init__(self, test_set_dir, target_size, color, weights_dir,
@@ -92,6 +84,7 @@ def train(ctx):
     TEST_DIR_NAME = 'test'
     EPOCH_START = 0
     EPOCH_END = 9000
+    MODEL_PERIOD = 100
     BATCH_SIZE = 6  # 10
     STEPS_PER_EPOCH = 1  # None
     INPUT_SIZE = (64, 64, 5)
@@ -144,6 +137,7 @@ def train(ctx):
             f.write(f"MODEL_INFO={MODEL_INFO}\n")
             f.write(f"EPOCH_START={EPOCH_START}\n")
             f.write(f"EPOCH_END={EPOCH_END}\n")
+            f.write(f"MODEL_PERIOD={MODEL_PERIOD}\n")
             f.write(f"BATCH_SIZE={BATCH_SIZE}\n")
             f.write(f"STEPS_PER_EPOCH={STEPS_PER_EPOCH}\n")
             f.write(f"LEARNING_RATE={LEARNING_RATE}\n")
@@ -232,7 +226,7 @@ def train(ctx):
         verbose=1,
         save_best_only=False,
         save_weights_only=False,
-        period=5)
+        period=MODEL_PERIOD)
     predict_output = PredictOutput(
         test_set_dir,
         TARGET_SIZE,
@@ -241,7 +235,7 @@ def train(ctx):
         NUM_CLASSES,
         predicted_set_dir,
         test_files,
-        period=5)
+        period=MODEL_PERIOD)
     csv_logger = CSVLogger(training_log_file, append=True)
     tensorboard = TensorBoard(
         log_dir=os.path.join(tensorboard_log_dir, str(time())),
