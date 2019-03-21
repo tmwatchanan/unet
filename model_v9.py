@@ -153,7 +153,7 @@ def train(ctx):
     if EPOCH_START == 0:
         trained_weights_file = None
     else:
-        trained_weights_name = EPOCH_START
+        trained_weights_name = f"{EPOCH_START:08d}"
         trained_weights_file = model_filename.format(trained_weights_name)
         trained_weights_file = os.path.join(weights_dir, trained_weights_file)
 
