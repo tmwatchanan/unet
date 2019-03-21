@@ -11,6 +11,7 @@ from utils import add_position_layers, max_rgb_filter
 import skimage.io as io
 import skimage.transform as trans
 import matplotlib.pyplot as plt
+import pandas as pd
 from keras.preprocessing.image import ImageDataGenerator
 from keras.callbacks import Callback, ModelCheckpoint, CSVLogger, LambdaCallback
 from keras.models import Model
@@ -82,9 +83,9 @@ def train(ctx):
     LEARNING_RATE = "1e_3"
     EXPERIMENT_NAME = f"{DATASET_NAME}-{MODEL_NAME}-{MODEL_INFO}-lr_{LEARNING_RATE}"
     TEST_DIR_NAME = 'test'
-    EPOCH_START = 0
+    EPOCH_START = 1530
     EPOCH_END = 9000
-    MODEL_PERIOD = 100
+    MODEL_PERIOD = 5
     BATCH_SIZE = 6  # 10
     STEPS_PER_EPOCH = 1  # None
     INPUT_SIZE = (64, 64, 5)
@@ -539,53 +540,24 @@ def plot(experiment_name):
     output1_loss_file = os.path.join(graphs_dir, "output1_loss.png")
     output_iris_loss_file = os.path.join(graphs_dir, "output_iris_loss.png")
 
-    # prepare lists for storing histories
-    epoch_list = []
-    output1_acc_list = []
-    val_output1_acc_list = []
-    output_iris_acc_list = []
-    val_output_iris_acc_list = []
-    output1_loss_list = []
-    val_output1_loss_list = []
-    output_iris_loss_list = []
-    val_output_iris_loss_list = []
-
-    # read loss-acc csv file
-    first_line = True
-    with open(training_log_file) as csv_file:
-        csv_reader = csv.reader(csv_file, delimiter=',')
-        for row in csv_reader:
-            if first_line:
-                print(f"Column names are {', '.join(row)}")
-                first_line = False
-            else:
-                print(
-                    f"\tepoch {row[0]} | {row[1]}, {row[2]}, {row[3]}, {row[4]}, {row[5]}, {row[6]}, {row[7]}, {row[8]}"
-                )
-                epoch_list.append(float(row[0]))
-                output1_acc_list.append(float(row[2]))
-                val_output1_acc_list.append(float(row[2]))
-                output_iris_acc_list.append(float(row[4]))
-                val_output_iris_acc_list.append(float(row[4]))
-                output1_loss_list.append(float(row[3]))
-                val_output1_loss_list.append(float(row[6]))
-                output_iris_loss_list.append(float(row[5]))
-                val_output_iris_loss_list.append(float(row[8]))
+    history_data = pd.read_csv(training_log_file)
+    print(history_data.columns)
 
     # plot graphs
-    plot_graph(1, epoch_list, output1_acc_list, val_output1_acc_list,
-               'Accuracy', 'Epoch',
+    plot_graph(1, history_data['epoch'], history_data['output1_acc'],
+               history_data['val_output1_acc'], 'Accuracy', 'Epoch',
                f"{experiment_name} - Output 1 Model Accuracy",
                ['Train Accuracy', 'Validation Accuracy'], output1_acc_file)
-    plot_graph(2, epoch_list, output_iris_acc_list, val_output_iris_acc_list,
-               'Accuracy', 'Epoch',
+    plot_graph(2, history_data['epoch'], history_data['output_iris_acc'],
+               history_data['val_output_iris_acc'], 'Accuracy', 'Epoch',
                f"{experiment_name} - Output Iris Model Accuracy",
                ['Train Accuracy', 'Validation Accuracy'], output_iris_acc_file)
-    plot_graph(3, epoch_list, output1_loss_list, val_output1_loss_list, 'Loss',
-               'Epoch', f"{experiment_name} - Output 1 Model Loss (cce)",
+    plot_graph(3, history_data['epoch'], history_data['output1_loss'],
+               history_data['val_output1_loss'], 'Loss', 'Epoch',
+               f"{experiment_name} - Output 1 Model Loss (cce)",
                ['Train Loss', 'Validation Loss'], output1_loss_file)
-    plot_graph(4, epoch_list, output_iris_loss_list, val_output_iris_loss_list,
-               'Loss', 'Epoch',
+    plot_graph(4, history_data['epoch'], history_data['output_iris_loss'],
+               history_data['val_output_iris_loss'], 'Loss', 'Epoch',
                f"{experiment_name} - Output Iris Model Loss (diff_iris_area)",
                ['Train Loss', 'Validation Loss'], output_iris_loss_file)
 
