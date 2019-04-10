@@ -2,7 +2,8 @@ import os
 import csv
 import matplotlib.pyplot as plt
 
-DATASET_NAME = "eye_v2-baseline_v7_multiclass-softmax-cce-lw_421-lr_1e_3"
+#  DATASET_NAME = "eye_v2-baseline_v7_multiclass-softmax-cce-lw_421-lr_1e_3"
+DATASET_NAME = "eye_v2-baseline_v8_multiclass-softmax-cce-lw_0.1_4_2_1-lr_1e_3"
 DATASET_DIR_NAME = DATASET_NAME
 DATASET_PATH = os.path.join('data', DATASET_NAME)
 LOSS_ACC_FILE = os.path.join(DATASET_PATH, f"loss-acc.csv")
@@ -26,9 +27,9 @@ with open(LOSS_ACC_FILE) as csv_file:
             print(f"Column names are {', '.join(row)}")
             first_line = True
         else:
-            print(
-                f"\tepoch {row[0]} | {row[1]}, {row[2]}, {row[3]}, {row[4]}, {row[5]}, {row[6]}"
-            )
+            #  print(
+            #  f"\tepoch {row[0]} | {row[1]}, {row[2]}, {row[3]}, {row[4]}, {row[5]}, {row[6]}"
+            #  )
             epoch_list.append(float(row[0]))
             acc1_list.append(float(row[1]))
             val_acc1_list.append(float(row[2]))

@@ -176,7 +176,7 @@ for i in range(EPOCH_START, EPOCH_END):
             validation_steps=num_validation,
             workers=0,
             use_multiprocessing=True)
-        print(history.history.keys())  # show dict of metrics in history
+        #  print(history.history.keys())  # show dict of metrics in history
         save_metrics(loss_acc_file=loss_acc_file, history=history, epoch=i)
 
     # test the model
