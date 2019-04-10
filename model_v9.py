@@ -12,10 +12,11 @@ import skimage.io as io
 import skimage.transform as trans
 import matplotlib.pyplot as plt
 import pandas as pd
+import tensorflow as tf
 from keras.preprocessing.image import ImageDataGenerator
 from keras.callbacks import Callback, ModelCheckpoint, CSVLogger, LambdaCallback
 from keras.models import Model
-from keras.layers import Input, Conv2D, Reshape, Permute, Activation, Flatten, MaxPooling2D, Concatenate, UpSampling2D, Dense, Lambda, ThresholdedReLU
+from keras.layers import Input, Conv2D, Reshape, Permute, Activation, Flatten, MaxPooling2D, Concatenate, UpSampling2D, Dense, Lambda, ThresholdedReLU, BatchNormalization
 from keras.optimizers import Adam
 from keras import backend as K
 from keras.utils import plot_model
@@ -81,11 +82,13 @@ def train(ctx):
     DATASET_NAME = 'eye_v2'
     MODEL_NAME = 'baseline_v9_multiclass'
     MODEL_INFO = 'softmax-cce-lw_1_0.1'
+    BATCH_NORMALIZATION = True
     LEARNING_RATE = "1e_3"
-    EXPERIMENT_NAME = f"{DATASET_NAME}-{MODEL_NAME}-{MODEL_INFO}-lr_{LEARNING_RATE}"
+    EXPERIMENT_NAME = f"{DATASET_NAME}-{MODEL_NAME}-{MODEL_INFO}-lr_{LEARNING_RATE}" + (
+        "-bn" if BATCH_NORMALIZATION else "")
     TEST_DIR_NAME = 'test'
-    EPOCH_START = 0
-    EPOCH_END = 9000
+    EPOCH_START = 9100
+    EPOCH_END = 10000
     MODEL_PERIOD = 100
     BATCH_SIZE = 6  # 10
     STEPS_PER_EPOCH = 1  # None
@@ -137,6 +140,7 @@ def train(ctx):
             f.write(f"{current_datetime}\n")
             f.write(f"MODEL_NAME={MODEL_NAME}\n")
             f.write(f"MODEL_INFO={MODEL_INFO}\n")
+            f.write(f"BATCH_NORMALIZATION={BATCH_NORMALIZATION}\n")
             f.write(f"EPOCH_START={EPOCH_START}\n")
             f.write(f"EPOCH_END={EPOCH_END}\n")
             f.write(f"MODEL_PERIOD={MODEL_PERIOD}\n")
@@ -174,7 +178,8 @@ def train(ctx):
         pretrained_weights=trained_weights_file,
         num_classes=NUM_CLASSES,
         input_size=INPUT_SIZE,
-        learning_rate=learning_rate)  # load pretrained model
+        learning_rate=learning_rate,
+        batch_normalization=BATCH_NORMALIZATION)  # load pretrained model
     if os.getenv('COLAB_TPU_ADDR'):
         model = tf.contrib.tpu.keras_to_tpu_model(
             model,
@@ -260,7 +265,7 @@ def train(ctx):
     history = model.fit_generator(
         train_gen,
         steps_per_epoch=STEPS_PER_EPOCH,
-        epochs=EPOCH_END - EPOCH_START,
+        epochs=EPOCH_END,
         initial_epoch=EPOCH_START,
         callbacks=callbacks,
         validation_data=validation_gen,
@@ -284,43 +289,39 @@ def diff_iris_area(y_true, y_pred):
 def create_model(pretrained_weights=None,
                  num_classes=2,
                  input_size=(64, 64, 5),
-                 learning_rate=1e-4):
+                 learning_rate=1e-4,
+                 batch_normalization=False):
     input1_size = input_size
     input1 = Input(shape=input1_size, name='input1')
-    conv1_1 = Conv2D(
-        6,
-        3,
-        activation='sigmoid',
-        padding='same',
-        kernel_initializer='he_normal')(input1)
-    pool1_1 = MaxPooling2D(pool_size=(2, 2))(conv1_1)
-    conv1_2 = Conv2D(
-        12,
-        3,
-        activation='sigmoid',
-        padding='same',
-        kernel_initializer='he_normal')(pool1_1)
-    pool1_2 = MaxPooling2D(pool_size=(2, 2))(conv1_2)
-    conv1_3 = Conv2D(
-        24,
-        1,
-        activation='sigmoid',
-        padding='same',
-        kernel_initializer='he_normal')(pool1_2)
-    up1_4 = UpSampling2D(size=(2, 2))(conv1_3)
-    conv1_5 = Conv2D(
-        12,
-        3,
-        activation='sigmoid',
-        padding='same',
-        kernel_initializer='he_normal')(up1_4)
-    up1_5 = UpSampling2D(size=(2, 2))(conv1_5)
-    conv1_6 = Conv2D(
-        6,
-        3,
-        activation='sigmoid',
-        padding='same',
-        kernel_initializer='he_normal')(up1_5)
+    layer1 = Conv2D(
+        6, 3, padding='same', kernel_initializer='he_normal')(input1)
+    if batch_normalization:
+        layer1 = BatchNormalization()(layer1)
+    layer1 = Activation('sigmoid')(layer1)
+    layer2 = MaxPooling2D(pool_size=(2, 2))(layer1)
+    layer3 = Conv2D(
+        12, 3, padding='same', kernel_initializer='he_normal')(layer2)
+    if batch_normalization:
+        layer3 = BatchNormalization()(layer3)
+    layer3 = Activation('sigmoid')(layer3)
+    layer4 = MaxPooling2D(pool_size=(2, 2))(layer3)
+    layer5 = Conv2D(
+        24, 1, padding='same', kernel_initializer='he_normal')(layer4)
+    if batch_normalization:
+        layer5 = BatchNormalization()(layer5)
+    layer5 = Activation('sigmoid')(layer5)
+    layer6 = UpSampling2D(size=(2, 2))(layer5)
+    layer7 = Conv2D(
+        12, 3, padding='same', kernel_initializer='he_normal')(layer6)
+    if batch_normalization:
+        layer7 = BatchNormalization()(layer7)
+    layer7 = Activation('sigmoid')(layer7)
+    layer8 = UpSampling2D(size=(2, 2))(layer7)
+    layer9 = Conv2D(
+        6, 3, padding='same', kernel_initializer='he_normal')(layer8)
+    if batch_normalization:
+        layer9 = BatchNormalization()(layer9)
+    layer9 = Activation('sigmoid')(layer9)
 
     output1 = Conv2D(
         num_classes,
@@ -328,7 +329,7 @@ def create_model(pretrained_weights=None,
         activation='softmax',
         padding='same',
         kernel_initializer='he_normal',
-        name='output1')(conv1_6)
+        name='output1')(layer9)
 
     output_iris = Lambda(lambda x: x[:, :, :, 0])(output1)
     output_iris = ThresholdedReLU(theta=0.5, name='output_iris')(output_iris)
@@ -576,9 +577,11 @@ def plot(experiment_name):
 @click.argument('experiment_name')
 @click.argument('weight')
 @click.argument('test_dir_name')
-def test(experiment_name, weight, test_dir_name):
+@click.argument('batch_normalization')
+def test(experiment_name, weight, test_dir_name, batch_normalization):
     cprint(f"> Running `test` command on ", color='green', end='')
-    cprint(f"{experiment_name}", color='green', attrs=['bold'], end='')
+    cprint(f"{experiment_name}", color='green', attrs=['bold'], end=', ')
+    cprint(f"{batch_normalization}", color='grey', attrs=['bold'], end='')
     cprint(f" experiment", color='green')
     #  experiment_name = "eye_v2-baseline_v8_multiclass-softmax-cce-lw_8421-lr_1e_3"
     #  weight = "98800"
@@ -636,7 +639,8 @@ def test(experiment_name, weight, test_dir_name):
     model = create_model(
         pretrained_weights=trained_weights_file,
         num_classes=NUM_CLASSES,
-        input_size=INPUT_SIZE)
+        input_size=INPUT_SIZE,
+        batch_normalization=batch_normalization)
 
     test_files = [
         name for name in os.listdir(test_set_dir)
