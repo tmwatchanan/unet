@@ -362,13 +362,8 @@ def create_model(pretrained_weights=None,
             'output_iris': diff_iris_area,
         },
         loss_weights={
-<<<<<<< HEAD
             'output1': 0.01,
             'output2': 0.01,
-=======
-            'output1': 64,
-            'output2': 8,
->>>>>>> c4fa1fa481ce986d3d6f0bb2b4569c4986e10875
             'output3': 1,
             'output_iris': 0.01,
         },
