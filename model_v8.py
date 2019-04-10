@@ -5,17 +5,28 @@ import numpy as np
 import os
 import csv
 import cv2
+from itertools import tee
 from termcolor import colored, cprint
 from utils import add_position_layers, max_rgb_filter
 import skimage.io as io
 import skimage.transform as trans
 import matplotlib.pyplot as plt
+import pandas as pd
+import tensorflow as tf
 from keras.preprocessing.image import ImageDataGenerator
-from keras.callbacks import ModelCheckpoint
+from keras.callbacks import Callback, ModelCheckpoint, CSVLogger, LambdaCallback
 from keras.models import Model
-from keras.layers import Input, Conv2D, Reshape, Permute, Activation, Flatten, MaxPooling2D, Concatenate, UpSampling2D, Dense, Lambda, ThresholdedReLU
+from keras.layers import Input, Conv2D, Reshape, Permute, Activation, Flatten, MaxPooling2D, Concatenate, UpSampling2D, Dense, Lambda, ThresholdedReLU, BatchNormalization
 from keras.optimizers import Adam
 from keras import backend as K
+from keras.utils import plot_model
+from time import time
+from tensorflow.python.keras.callbacks import TensorBoard
+import tensorflow as tf
+
+INPUT_SIZE = (256, 256, 5)
+TARGET_SIZE = (256, 256)
+NUM_CLASSES = 3
 
 Iris = [0, 255, 0]
 Sclera = [255, 0, 0]
@@ -31,23 +42,60 @@ def cli():
     pass
 
 
+class PredictOutput(Callback):
+    def __init__(self, test_set_dir, target_size, color, weights_dir,
+                 num_classes, predicted_set_dir, test_files, period):
+        #  self.out_log = []
+        self.test_set_dir = test_set_dir
+        self.target_size = target_size
+        self.color = color
+        self.weights_dir = weights_dir
+        self.num_classes = num_classes
+        self.predicted_set_dir = predicted_set_dir
+        self.test_files = test_files
+        self.period = period
+
+    def on_epoch_end(self, epoch, logs=None):
+        predict_epoch = epoch + 1
+        if (predict_epoch % self.period == 0):
+            # test the model
+            test_gen = test_generator(self.test_set_dir, self.target_size,
+                                      self.color)
+            num_test_files = 12  # sum(1 for _ in test_gen)
+            results = self.model.predict_generator(
+                test_gen, steps=num_test_files, verbose=1)
+            #  print(test_files)
+            last_weights_file = f"{predict_epoch:08d}"
+            save_result(
+                self.predicted_set_dir,
+                results,
+                file_names=self.test_files,
+                weights_name=last_weights_file,
+                flag_multi_class=True,
+                num_class=self.num_classes)
+        #  self.out_log.append()
+
+
 @cli.command()
-def train():
-    click.echo('> `train` function')
+@click.pass_context
+def train(ctx):
+    #  click.echo('> `train` function')
+    cprint("> ", end='')
+    cprint("`train`", color='green', end='')
+    cprint(" function")
     DATASET_NAME = 'eye_v2'
     MODEL_NAME = 'baseline_v8_multiclass'
-    MODEL_INFO = 'softmax-cce-lw_8421'
-    LEARNING_RATE = "1e_3"
-    EXPERIMENT_NAME = f"{DATASET_NAME}-{MODEL_NAME}-{MODEL_INFO}-lr_{LEARNING_RATE}"
+    MODEL_INFO = 'softmax-cce-lw_64_8_1_0.01'
+    BATCH_NORMALIZATION = True
+    LEARNING_RATE = "1e_2"
+    EXPERIMENT_NAME = f"{DATASET_NAME}-{MODEL_NAME}-{MODEL_INFO}-lr_{LEARNING_RATE}" + (
+        "-bn" if BATCH_NORMALIZATION else "")
     TEST_DIR_NAME = 'test'
-    CONTINUED_WEIGHT = None  # "14", None
-    EPOCH_START = 1
-    EPOCH_END = 9001
+    EPOCH_START = 0
+    EPOCH_END = 7400
+    MODEL_PERIOD = 100
     BATCH_SIZE = 6  # 10
     STEPS_PER_EPOCH = 1  # None
-    INPUT_SIZE = (256, 256, 5)
-    TARGET_SIZE = (256, 256)
-    NUM_CLASSES = 3
     COLOR = 'rgb'  # rgb, grayscale
 
     if BATCH_SIZE > 10:
@@ -70,17 +118,19 @@ def train():
     test_set_dir = os.path.join(dataset_path, TEST_DIR_NAME)
     predicted_set_dir = os.path.join(dataset_path,
                                      f"{TEST_DIR_NAME}-predicted-{COLOR}")
-    mask_set_dir = os.path.join(dataset_path, f"mask-{COLOR}")
-    loss_acc_file = os.path.join(dataset_path, 'loss-acc.csv')
+    training_log_file = os.path.join(dataset_path, 'training.csv')
+    loss_acc_file = os.path.join(dataset_path, 'loss_acc.csv')
     experiments_setting_file = os.path.join(dataset_path,
                                             'experiment_settings.txt')
+    model_file = os.path.join(dataset_path, 'model.png')
+    tensorboard_log_dir = os.path.join(dataset_path, 'logs')
 
     if not os.path.exists(weights_dir):
         os.makedirs(weights_dir)
     if not os.path.exists(predicted_set_dir):
         os.makedirs(predicted_set_dir)
-    if not os.path.exists(mask_set_dir):
-        os.makedirs(mask_set_dir)
+    if not os.path.exists(tensorboard_log_dir):
+        os.makedirs(tensorboard_log_dir)
 
     learning_rate = float(LEARNING_RATE.replace("_", "-"))
 
@@ -91,9 +141,10 @@ def train():
             f.write(f"{current_datetime}\n")
             f.write(f"MODEL_NAME={MODEL_NAME}\n")
             f.write(f"MODEL_INFO={MODEL_INFO}\n")
-            f.write(f"CONTINUED_WEIGHT={CONTINUED_WEIGHT}\n")
+            f.write(f"BATCH_NORMALIZATION={BATCH_NORMALIZATION}\n")
             f.write(f"EPOCH_START={EPOCH_START}\n")
             f.write(f"EPOCH_END={EPOCH_END}\n")
+            f.write(f"MODEL_PERIOD={MODEL_PERIOD}\n")
             f.write(f"BATCH_SIZE={BATCH_SIZE}\n")
             f.write(f"STEPS_PER_EPOCH={STEPS_PER_EPOCH}\n")
             f.write(f"LEARNING_RATE={LEARNING_RATE}\n")
@@ -106,12 +157,12 @@ def train():
     save_experiment_settings_file()
 
     model_filename = "{}.hdf5"
-    if CONTINUED_WEIGHT:
-        trained_weights_name = CONTINUED_WEIGHT
+    if EPOCH_START == 0:
+        trained_weights_file = None
+    else:
+        trained_weights_name = f"{EPOCH_START:08d}"
         trained_weights_file = model_filename.format(trained_weights_name)
         trained_weights_file = os.path.join(weights_dir, trained_weights_file)
-    else:
-        trained_weights_file = None
 
     num_training = 0
     for root, dirs, files in os.walk(training_images_set_dir):
@@ -128,9 +179,15 @@ def train():
         pretrained_weights=trained_weights_file,
         num_classes=NUM_CLASSES,
         input_size=INPUT_SIZE,
-        learning_rate=learning_rate)  # load pretrained model
-
-    #  model_file += "-{epoch:02d}-{val_acc:.2f}.hdf5"
+        learning_rate=learning_rate,
+        batch_normalization=BATCH_NORMALIZATION)  # load pretrained model
+    if os.getenv('COLAB_TPU_ADDR'):
+        model = tf.contrib.tpu.keras_to_tpu_model(
+            model,
+            strategy=tf.contrib.tpu.TPUDistributionStrategy(
+                tf.contrib.cluster_resolver.TPUClusterResolver(
+                    tpu='grpc://' + os.environ['COLAB_TPU_ADDR'])))
+    plot_model(model, show_shapes=True, to_file=model_file)
 
     data_gen_args = dict(
         rotation_range=10,
@@ -145,7 +202,6 @@ def train():
         training_set_dir,
         'images',
         'labels',
-        mask_set_dir,
         data_gen_args,
         save_to_dir=None,
         image_color_mode=COLOR,
@@ -157,13 +213,14 @@ def train():
         validation_set_dir,
         'images',
         'labels',
-        mask_set_dir,
         data_gen_args,
         save_to_dir=None,
         image_color_mode=COLOR,
         mask_color_mode=COLOR,
         flag_multi_class=True,
         num_class=NUM_CLASSES)
+    test_gen = test_generator(
+        test_set_dir, target_size=TARGET_SIZE, color=COLOR)
 
     test_files = [
         name for name in os.listdir(test_set_dir)
@@ -171,52 +228,56 @@ def train():
     ]
     num_test_files = len(test_files)
 
-    # for each epoch
-    for i in range(EPOCH_START, EPOCH_END):
-        # train the model
-        new_weights_name = str(i)
-        new_weights_file = model_filename.format(new_weights_name)
-        new_weights_file = os.path.join(weights_dir, new_weights_file)
-        callbacks = None
-        if (i == 1) or (i % 100 == 0):
-            model_checkpoint = ModelCheckpoint(
-                filepath=new_weights_file,
-                monitor='val_acc',
-                mode='auto',
-                verbose=1,
-                save_best_only=False,
-                save_weights_only=False,
-                period=1)
-            callbacks = [model_checkpoint]
-        history = model.fit_generator(
-            train_gen,
-            steps_per_epoch=STEPS_PER_EPOCH,
-            epochs=1,
-            callbacks=callbacks,
-            validation_data=validation_gen,
-            validation_steps=num_validation,
-            workers=0,
-            use_multiprocessing=True)
-        #  print(history.history.keys())  # show dict of metrics in history
-        save_metrics(loss_acc_file=loss_acc_file, history=history, epoch=i)
+    # train the model
+    #  new_weights_name = '{epoch:08d}'
+    #  new_weights_file = model_filename.format(new_weights_name)
+    new_weights_file = '{epoch:08d}.hdf5'
+    new_weights_file = os.path.join(weights_dir, new_weights_file)
+    model_checkpoint = ModelCheckpoint(
+        filepath=new_weights_file,
+        monitor='val_acc',
+        mode='auto',
+        verbose=1,
+        save_best_only=False,
+        save_weights_only=False,
+        period=MODEL_PERIOD)
+    predict_output = PredictOutput(
+        test_set_dir,
+        TARGET_SIZE,
+        COLOR,
+        weights_dir,
+        NUM_CLASSES,
+        predicted_set_dir,
+        test_files,
+        period=MODEL_PERIOD)
+    csv_logger = CSVLogger(training_log_file, append=True)
+    tensorboard = TensorBoard(
+        log_dir=os.path.join(tensorboard_log_dir, str(time())),
+        histogram_freq=0,
+        write_graph=True,
+        write_images=True)
+    last_epoch = []
+    save_output_callback = LambdaCallback(
+        on_epoch_end=lambda epoch, logs: (last_epoch.append(epoch)))
+    callbacks = [
+        model_checkpoint, csv_logger, tensorboard, save_output_callback,
+        predict_output
+    ]
+    history = model.fit_generator(
+        train_gen,
+        steps_per_epoch=STEPS_PER_EPOCH,
+        epochs=EPOCH_END,
+        initial_epoch=EPOCH_START,
+        callbacks=callbacks,
+        validation_data=validation_gen,
+        validation_steps=num_validation,
+        workers=0,
+        use_multiprocessing=True)
+    #  print(history.history.keys())  # show dict of metrics in history
+    #  save_metrics(loss_acc_file=loss_acc_file, history=history, epoch=i)
 
-        # test the model
-        test_gen = test_generator(
-            test_set_dir, target_size=TARGET_SIZE, color=COLOR)
-        results = model.predict_generator(
-            test_gen, steps=num_test_files, verbose=1)
-        #  print(test_files)
-        print(f"EPOCH# {new_weights_name}")
-        if (i == 1) or (i % 100 == 0):
-            save_result(
-                predicted_set_dir,
-                results,
-                file_names=test_files,
-                weights_name=new_weights_name,
-                flag_multi_class=True,
-                num_class=NUM_CLASSES)
-
-    plot_loss_acc(EXPERIMENT_NAME, loss_acc_file)
+    plot([EXPERIMENT_NAME])
+    #  ctx.invoke(plot, experiment_name=EXPERIMENT_NAME)
 
 
 def diff_iris_area(y_true, y_pred):
@@ -229,7 +290,9 @@ def diff_iris_area(y_true, y_pred):
 def create_model(pretrained_weights=None,
                  num_classes=2,
                  input_size=(256, 256, 5),
-                 learning_rate=1e-4):
+                 learning_rate=1e-3,
+                 batch_normalization=False):
+
     input3_size = (int(input_size[0] / 4), int(input_size[1] / 4), 5)
     input3 = Input(shape=input3_size, name='input3')
     conv3_1 = Conv2D(
@@ -238,29 +301,29 @@ def create_model(pretrained_weights=None,
         activation='sigmoid',
         padding='same',
         kernel_initializer='he_normal')(input3)
+    if batch_normalization:
+        conv3_1 = BatchNormalization()(conv3_1)
+    conv3_1 = Activation('sigmoid')(conv3_1)
     conv3_2 = Conv2D(
-        6,
-        5,
-        activation='sigmoid',
-        padding='same',
-        kernel_initializer='he_normal')(conv3_1)
+        6, 5, padding='same', kernel_initializer='he_normal')(conv3_1)
+    if batch_normalization:
+        conv3_2 = BatchNormalization()(conv3_2)
+    conv3_2 = Activation('sigmoid')(conv3_2)
     output3 = Dense(num_classes, activation='softmax', name='output3')(conv3_2)
     up3_2 = UpSampling2D(size=(2, 2))(conv3_2)
 
     input2_size = (int(input_size[0] / 2), int(input_size[1] / 2), 5)
     input2 = Input(shape=input2_size, name='input2')
     conv2_1 = Conv2D(
-        6,
-        1,
-        activation='sigmoid',
-        padding='same',
-        kernel_initializer='he_normal')(input2)
+        6, 1, padding='same', kernel_initializer='he_normal')(input2)
+    if batch_normalization:
+        conv2_1 = BatchNormalization()(conv2_1)
+    conv2_1 = Activation('sigmoid')(conv2_1)
     conv2_2 = Conv2D(
-        6,
-        5,
-        activation='sigmoid',
-        padding='same',
-        kernel_initializer='he_normal')(conv2_1)
+        6, 5, padding='same', kernel_initializer='he_normal')(conv2_1)
+    if batch_normalization:
+        conv2_2 = BatchNormalization()(conv2_2)
+    conv2_2 = Activation('sigmoid')(conv2_2)
     concat2_3 = Concatenate()([conv2_2, up3_2])
     output2 = Dense(
         num_classes, activation='softmax', name='output2')(concat2_3)
@@ -270,17 +333,15 @@ def create_model(pretrained_weights=None,
     input1_size = input_size
     input1 = Input(shape=input1_size, name='input1')
     conv1_1 = Conv2D(
-        6,
-        1,
-        activation='sigmoid',
-        padding='same',
-        kernel_initializer='he_normal')(input1)
+        6, 1, padding='same', kernel_initializer='he_normal')(input1)
+    if batch_normalization:
+        conv1_1 = BatchNormalization()(conv1_1)
+    conv1_1 = Activation('sigmoid')(conv1_1)
     conv1_2 = Conv2D(
-        6,
-        5,
-        activation='sigmoid',
-        padding='same',
-        kernel_initializer='he_normal')(conv1_1)
+        6, 5, padding='same', kernel_initializer='he_normal')(conv1_1)
+    if batch_normalization:
+        conv1_2 = BatchNormalization()(conv1_2)
+    conv1_2 = Activation('sigmoid')(conv1_2)
     concat1_3 = Concatenate()([conv1_2, up2_3])
     output1 = Dense(
         num_classes, activation='softmax', name='output1')(concat1_3)
@@ -301,10 +362,10 @@ def create_model(pretrained_weights=None,
             'output_iris': diff_iris_area,
         },
         loss_weights={
-            'output1': 1,
-            'output2': 2,
-            'output3': 4,
-            'output_iris': 4,
+            'output1': 0.01,
+            'output2': 0.01,
+            'output3': 1,
+            'output_iris': 0.01,
         },
         metrics={
             'output1': ['accuracy'],
@@ -321,51 +382,28 @@ def create_model(pretrained_weights=None,
     return model
 
 
-def adjust_data(img, mask, flag_multi_class, num_class, save_path,
-                target_size):
+def adjust_data(img, mask, flag_multi_class, num_class):
     if (flag_multi_class):
         img = img / 255
         img1 = img
         img2 = img1[:, ::2, ::2, :]  # img1 / 2
         img3 = img2[:, ::2, ::2, :]  # img1 / 4
-        #  img1 = trans.resize(img, target_size)
-        #  img2_shape = (int(img1.shape[0] / 2), int(img1.shape[0] / 2), -1)
-        #  img2 = trans.resize(img1, img2_shape)
-        #  img3_shape = (int(img1.shape[0] / 4), int(img1.shape[0] / 4), -1)
-        #  img3 = trans.resize(img1, img3_shape)
         img1 = add_position_layers(img1, -1)
         img2 = add_position_layers(img2, -1)
         img3 = add_position_layers(img3, -1)
-        #  print(img1.shape, img2.shape, img3.shape)
 
         mask = mask / 255
         mask1 = mask
         mask2 = mask1[:, ::2, ::2, :]  # mask1 / 2
         mask3 = mask2[:, ::2, ::2, :]  # mask1 / 4
         mask_iris = mask[:, :, :, 0]
-        #  print(mask1.shape, mask2.shape, mask3.shape)
-        #  mask1 = trans.resize(mask, target_size)
-        #  mask2_shape = (int(mask1.shape[0] / 2), int(mask1.shape[0] / 2), -1)
-        #  mask2 = trans.resize(mask1, mask2_shape)
-        #  mask3_shape = (int(mask1.shape[0] / 4), int(mask1.shape[0] / 4), -1)
-        #  mask3 = trans.resize(mask1, mask3_shape)
     return [img1, img2, img3], [mask1, mask2, mask3, mask_iris]
-    #  return {
-    #  'input1': img1,
-    #  'input2': img2,
-    #  'input3': img3
-    #  }, {
-    #  'output1': mask1,
-    #  'output2': mask2,
-    #  'output3': mask3
-    #  }
 
 
 def train_generator(batch_size,
                     train_path,
                     image_folder,
                     mask_folder,
-                    save_path,
                     aug_dict,
                     image_color_mode="grayscale",
                     mask_color_mode="grayscale",
@@ -405,8 +443,7 @@ def train_generator(batch_size,
         seed=seed)
     train_generator = zip(image_generator, mask_generator)
     for (img, mask) in train_generator:
-        img, mask = adjust_data(img, mask, flag_multi_class, num_class,
-                                save_path, target_size)
+        img, mask = adjust_data(img, mask, flag_multi_class, num_class)
         yield (img, mask)
 
 
@@ -427,11 +464,6 @@ def test_generator(test_path, target_size=(256, 256), color='rgb'):
         img1 = trans.resize(img, target_size)
         img2 = img1[::2, ::2, :]  # img1 / 2
         img3 = img2[::2, ::2, :]  # img1 / 4
-        #  img1 = trans.resize(img, target_size)
-        #  img2_shape = (int(img1.shape[0] / 2), int(img1.shape[0] / 2), -1)
-        #  img2 = trans.resize(img1, img2_shape)
-        #  img3_shape = (int(img1.shape[0] / 4), int(img1.shape[0] / 4), -1)
-        #  img3 = trans.resize(img1, img3_shape)
         img1 = np.reshape(img1, (1, ) + img1.shape)
         img2 = np.reshape(img2, (1, ) + img2.shape)
         img3 = np.reshape(img3, (1, ) + img3.shape)
@@ -448,42 +480,57 @@ def save_result(save_path,
                 weights_name,
                 flag_multi_class=False,
                 num_class=2):
-    for l in range(3):
-        layer_output = npyfile[l]
+    #  print(len(npyfile))
+    # 4 outputs
+    for ol in range(len(npyfile)):
+        layer_output = npyfile[ol]
+        #  print(layer_output.shape)
+        # output1:     (12, 256, 256, 3)
+        # output2:     (12, 128, 128, 3)
+        # output3:     (12, 64, 64, 3)
+        # output_iris: (12, 256, 256)
+        if ol == 0:
+            output_shape = (256, 256, num_class)
+        elif ol == 1:
+            output_shape = (128, 128, num_class)
+        elif ol == 2:
+            output_shape = (64, 64, num_class)
+        elif ol == 3:
+            output_shape = (256, 256)
         for i, item in enumerate(layer_output):
             #  print(item.shape)
-            if l == 0:
-                output_shape = (256, 256, num_class)
-            elif l == 1:
-                output_shape = (128, 128, num_class)
-            elif l == 2:
-                output_shape = (64, 64, num_class)
-            item = np.reshape(item, output_shape)
-            #  print(item.shape)
+            # output1:     (256, 256, 3)
+            # output2:     (128, 128, 3)
+            # output3:     (64, 64, 3)
+            # output_iris: (256, 256)
             file_name = os.path.splitext(file_names[i])[0]
-
-            visualized_img = max_rgb_filter(item)
-            visualized_img[visualized_img > 0] = 1
-
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
+            item = np.reshape(item, output_shape)
+            if ol >= 0 and ol <= 2:
+                visualized_img = max_rgb_filter(item)
+                visualized_img[visualized_img > 0] = 1
                 io.imsave(
                     os.path.join(
                         save_path,
-                        f"{file_name}-{weights_name}-{l+1}-merged.png"),
+                        f"{file_name}-{weights_name}-{ol+1}-merged.png"),
                     visualized_img)
                 io.imsave(
                     os.path.join(save_path,
-                                 f"{file_name}-{weights_name}-{l+1}-0.png"),
+                                 f"{file_name}-{weights_name}-{ol+1}-0.png"),
                     item[:, :, 0])
                 io.imsave(
                     os.path.join(save_path,
-                                 f"{file_name}-{weights_name}-{l+1}-1.png"),
+                                 f"{file_name}-{weights_name}-{ol+1}-1.png"),
                     item[:, :, 1])
                 io.imsave(
                     os.path.join(save_path,
-                                 f"{file_name}-{weights_name}-{l+1}-2.png"),
+                                 f"{file_name}-{weights_name}-{ol+1}-2.png"),
                     item[:, :, 2])
+            elif ol == 3:
+                io.imsave(
+                    os.path.join(
+                        save_path,
+                        f"{file_name}-{weights_name}-{ol+1}-iris.png"),
+                    item[:, :])
 
 
 def save_metrics(loss_acc_file, history, epoch):
@@ -553,7 +600,7 @@ def plot_graph(figure_num, epoch_list, x, y, x_label, y_label, title, legend,
 def plot(experiment_name):
     # define paths
     dataset_path = os.path.join('data', experiment_name)
-    loss_acc_file = os.path.join(dataset_path, f"loss-acc.csv")
+    training_log_file = os.path.join(dataset_path, 'training.csv')
 
     graphs_dir = os.path.join(dataset_path, 'graphs')
     if not os.path.exists(graphs_dir):
@@ -568,83 +615,40 @@ def plot(experiment_name):
     output3_loss_file = os.path.join(graphs_dir, "output3_loss.png")
     output_iris_loss_file = os.path.join(graphs_dir, "output_iris_loss.png")
 
-    # prepare lists for storing histories
-    epoch_list = []
-    output1_acc_list = []
-    val_output1_acc_list = []
-    output2_acc_list = []
-    val_output2_acc_list = []
-    output3_acc_list = []
-    val_output3_acc_list = []
-    output_iris_acc_list = []
-    val_output_iris_acc_list = []
-    output1_loss_list = []
-    val_output1_loss_list = []
-    output2_loss_list = []
-    val_output2_loss_list = []
-    output3_loss_list = []
-    val_output3_loss_list = []
-    output_iris_loss_list = []
-    val_output_iris_loss_list = []
-
-    # read loss-acc csv file
-    first_line = True
-    with open(loss_acc_file) as csv_file:
-        csv_reader = csv.reader(csv_file, delimiter=',')
-        for row in csv_reader:
-            if first_line:
-                print(f"Column names are {', '.join(row)}")
-                first_line = False
-            else:
-                print(
-                    f"\tepoch {row[0]} | {row[1]}, {row[2]}, {row[3]}, {row[4]}, {row[5]}, {row[6]}, {row[7]}, {row[8]}, {row[9]}, {row[10]}, {row[11]}, {row[12]}, {row[13]}, {row[14]}, {row[15]}, {row[16]}"
-                )
-                epoch_list.append(float(row[0]))
-                output1_acc_list.append(float(row[1]))
-                val_output1_acc_list.append(float(row[2]))
-                output2_acc_list.append(float(row[3]))
-                val_output2_acc_list.append(float(row[4]))
-                output3_acc_list.append(float(row[5]))
-                val_output3_acc_list.append(float(row[6]))
-                output_iris_acc_list.append(float(row[7]))
-                val_output_iris_acc_list.append(float(row[8]))
-                output1_loss_list.append(float(row[9]))
-                val_output1_loss_list.append(float(row[10]))
-                output2_loss_list.append(float(row[11]))
-                val_output2_loss_list.append(float(row[12]))
-                output3_loss_list.append(float(row[13]))
-                val_output3_loss_list.append(float(row[14]))
-                output_iris_loss_list.append(float(row[15]))
-                val_output_iris_loss_list.append(float(row[16]))
+    history_data = pd.read_csv(training_log_file)
+    print(history_data.columns)
 
     # plot graphs
-    plot_graph(1, epoch_list, output1_acc_list, val_output1_acc_list,
-               'Accuracy', 'Epoch',
+    plot_graph(1, history_data['epoch'], history_data['output1_acc'],
+               history_data['val_output1_acc'], 'Accuracy', 'Epoch',
                f"{experiment_name} - Output 1 Model Accuracy",
                ['Train Accuracy', 'Validation Accuracy'], output1_acc_file)
-    plot_graph(2, epoch_list, output2_acc_list, val_output2_acc_list,
-               'Accuracy', 'Epoch',
+    plot_graph(2, history_data['epoch'], history_data['output2_acc'],
+               history_data['val_output2_acc'], 'Accuracy', 'Epoch',
                f"{experiment_name} - Output 2 Model Accuracy",
                ['Train Accuracy', 'Validation Accuracy'], output2_acc_file)
-    plot_graph(3, epoch_list, output3_acc_list, val_output3_acc_list,
-               'Accuracy', 'Epoch',
+    plot_graph(3, history_data['epoch'], history_data['output3_acc'],
+               history_data['val_output3_acc'], 'Accuracy', 'Epoch',
                f"{experiment_name} - Output 3 Model Accuracy",
                ['Train Accuracy', 'Validation Accuracy'], output3_acc_file)
-    plot_graph(4, epoch_list, output_iris_acc_list, val_output_iris_acc_list,
-               'Accuracy', 'Epoch',
+    plot_graph(4, history_data['epoch'], history_data['output_iris_acc'],
+               history_data['val_output_iris_acc'], 'Accuracy', 'Epoch',
                f"{experiment_name} - Output Iris Model Accuracy",
                ['Train Accuracy', 'Validation Accuracy'], output_iris_acc_file)
-    plot_graph(5, epoch_list, output1_loss_list, val_output1_loss_list, 'Loss',
-               'Epoch', f"{experiment_name} - Output 1 Model Loss (cce)",
+    plot_graph(5, history_data['epoch'], history_data['output1_loss'],
+               history_data['val_output1_loss'], 'Loss', 'Epoch',
+               f"{experiment_name} - Output 1 Model Loss (cce)",
                ['Train Loss', 'Validation Loss'], output1_loss_file)
-    plot_graph(6, epoch_list, output2_loss_list, val_output2_loss_list, 'Loss',
-               'Epoch', f"{experiment_name} - Output 2 Model Loss (cce)",
+    plot_graph(6, history_data['epoch'], history_data['output2_loss'],
+               history_data['val_output2_loss'], 'Loss', 'Epoch',
+               f"{experiment_name} - Output 2 Model Loss (cce)",
                ['Train Loss', 'Validation Loss'], output2_loss_file)
-    plot_graph(7, epoch_list, output3_loss_list, val_output3_loss_list, 'Loss',
-               'Epoch', f"{experiment_name} - Output 3 Model Loss (cce)",
+    plot_graph(7, history_data['epoch'], history_data['output3_loss'],
+               history_data['val_output3_loss'], 'Loss', 'Epoch',
+               f"{experiment_name} - Output 3 Model Loss (cce)",
                ['Train Loss', 'Validation Loss'], output3_loss_file)
-    plot_graph(8, epoch_list, output_iris_loss_list, val_output_iris_loss_list,
-               'Loss', 'Epoch',
+    plot_graph(8, history_data['epoch'], history_data['output_iris_loss'],
+               history_data['val_output_iris_loss'], 'Loss', 'Epoch',
                f"{experiment_name} - Output Iris Model Loss (diff_iris_area)",
                ['Train Loss', 'Validation Loss'], output_iris_loss_file)
 
@@ -656,17 +660,15 @@ def plot(experiment_name):
 @click.argument('experiment_name')
 @click.argument('weight')
 @click.argument('test_dir_name')
-def test(experiment_name, weight, test_dir_name):
+@click.argument('batch_normalization')
+def test(experiment_name, weight, test_dir_name, batch_normalization):
     cprint(f"> Running `test` command on ", color='green', end='')
-    cprint(f"{experiment_name}", color='green', attrs=['bold'], end='')
+    cprint(f"{experiment_name}", color='green', attrs=['bold'], end=', ')
+    cprint(f"{batch_normalization}", color='grey', attrs=['bold'], end='')
     cprint(f" experiment", color='green')
     #  experiment_name = "eye_v2-baseline_v8_multiclass-softmax-cce-lw_8421-lr_1e_3"
     #  weight = "98800"
     #  test_dir_name = 'blind_conj'
-    BATCH_SIZE = 6  # 10
-    INPUT_SIZE = (256, 256, 5)
-    TARGET_SIZE = (256, 256)
-    NUM_CLASSES = 3
     COLOR = 'rgb'  # rgb, grayscale
 
     cprint(f"The weight at epoch#", color='green', end='')
@@ -674,13 +676,6 @@ def test(experiment_name, weight, test_dir_name):
     cprint(f" will be used to predict the images in ", color='green', end='')
     cprint(f"{test_dir_name}", color='green', attrs=['bold'], end='')
     cprint(f" directory", color='green')
-
-    if BATCH_SIZE > 10:
-        answer = input(
-            f"Do you want to continue using BATCH_SIZE={BATCH_SIZE} [y/n] : ")
-        if not answer or answer[0].lower() != 'y':
-            print("You can change the value of BATCH_SIZE in this file")
-            exit(1)
 
     dataset_path = os.path.join('data', experiment_name)
     weights_dir = os.path.join(dataset_path, 'weights')
@@ -701,7 +696,6 @@ def test(experiment_name, weight, test_dir_name):
             f.write(f"experiment_name={experiment_name}\n")
             f.write(f"test_dir_name={test_dir_name}\n")
             f.write(f"weight={weight}\n")
-            f.write(f"BATCH_SIZE={BATCH_SIZE}\n")
             f.write(f"INPUT_SIZE={INPUT_SIZE}\n")
             f.write(f"TARGET_SIZE={TARGET_SIZE}\n")
             f.write(f"NUM_CLASSES={NUM_CLASSES}\n")
@@ -716,7 +710,8 @@ def test(experiment_name, weight, test_dir_name):
     model = create_model(
         pretrained_weights=trained_weights_file,
         num_classes=NUM_CLASSES,
-        input_size=INPUT_SIZE)
+        input_size=INPUT_SIZE,
+        batch_normalization=batch_normalization)
 
     test_files = [
         name for name in os.listdir(test_set_dir)
@@ -745,4 +740,5 @@ def test(experiment_name, weight, test_dir_name):
 
 
 if __name__ == '__main__':
+    warnings.filterwarnings("ignore")
     cli()
