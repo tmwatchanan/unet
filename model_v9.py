@@ -81,14 +81,14 @@ def train(ctx):
     cprint(" function")
     DATASET_NAME = 'eye_v2'
     MODEL_NAME = 'baseline_v9_multiclass'
-    MODEL_INFO = 'softmax-cce-lw_1_0.1'
+    MODEL_INFO = 'softmax-cce-lw_1_0.01'
     BATCH_NORMALIZATION = True
-    LEARNING_RATE = "1e_3"
+    LEARNING_RATE = "1e_2"
     EXPERIMENT_NAME = f"{DATASET_NAME}-{MODEL_NAME}-{MODEL_INFO}-lr_{LEARNING_RATE}" + (
         "-bn" if BATCH_NORMALIZATION else "")
     TEST_DIR_NAME = 'test'
-    EPOCH_START = 9100
-    EPOCH_END = 10000
+    EPOCH_START = 0
+    EPOCH_END = 8000
     MODEL_PERIOD = 100
     BATCH_SIZE = 6  # 10
     STEPS_PER_EPOCH = 1  # None
