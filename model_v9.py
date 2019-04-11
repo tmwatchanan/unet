@@ -5,10 +5,13 @@ import numpy as np
 import os
 import csv
 import cv2
+import six
+import time
+import io
 from itertools import tee
 from termcolor import colored, cprint
 from utils import add_position_layers, max_rgb_filter
-import skimage.io as io
+import skimage.io
 import skimage.transform as trans
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -20,9 +23,10 @@ from keras.layers import Input, Conv2D, Reshape, Permute, Activation, Flatten, M
 from keras.optimizers import Adam
 from keras import backend as K
 from keras.utils import plot_model
-from time import time
 from tensorflow.python.keras.callbacks import TensorBoard
 import tensorflow as tf
+from collections import OrderedDict
+from collections import Iterable
 
 Iris = [0, 255, 0]
 Sclera = [255, 0, 0]
@@ -72,6 +76,76 @@ class PredictOutput(Callback):
         #  self.out_log.append()
 
 
+class TimeHistory(Callback):
+    def __init__(self, filename, separator=',', append=False):
+        self.sep = separator
+        self.filename = filename
+        self.append = append
+        self.writer = None
+        self.keys = ['time_per_epoch']
+        self.append_header = True
+        if six.PY2:
+            self.file_flags = 'b'
+            self._open_args = {}
+        else:
+            self.file_flags = ''
+            self._open_args = {'newline': '\n'}
+
+    def on_train_begin(self, logs={}):
+        self.times = []
+        if self.append:
+            if os.path.exists(self.filename):
+                with open(self.filename, 'r' + self.file_flags) as f:
+                    self.append_header = not bool(len(f.readline()))
+            mode = 'a'
+        else:
+            mode = 'w'
+        self.csv_file = io.open(self.filename, mode + self.file_flags,
+                                **self._open_args)
+
+    def on_train_end(self, logs=None):
+        self.csv_file.close()
+        self.writer = None
+
+    def on_epoch_begin(self, epoch, logs={}):
+        self.epoch_time_start = time.time()
+
+    def on_epoch_end(self, epoch, logs={}):
+        self.times.append(time.time() - self.epoch_time_start)
+
+        def handle_value(k):
+            is_zero_dim_ndarray = isinstance(k, np.ndarray) and k.ndim == 0
+            if isinstance(k, six.string_types):
+                return k
+            elif isinstance(k, Iterable) and not is_zero_dim_ndarray:
+                return '"[%s]"' % (', '.join(map(str, k)))
+            else:
+                return k
+
+        if self.model.stop_training:
+            # We set NA so that csv parsers do not fail for this last epoch.
+            logs = dict(
+                [(k, logs[k] if k in logs else 'NA') for k in self.keys])
+
+        if not self.writer:
+
+            class CustomDialect(csv.excel):
+                delimiter = self.sep
+
+            fieldnames = ['epoch'] + self.keys
+            if six.PY2:
+                fieldnames = [unicode(x) for x in fieldnames]
+            self.writer = csv.DictWriter(
+                self.csv_file, fieldnames=fieldnames, dialect=CustomDialect)
+            if self.append_header:
+                self.writer.writeheader()
+
+        row_dict = OrderedDict({'epoch': epoch})
+        row_dict.update({'time_per_epoch': self.times[-1]})
+        self.writer.writerow(row_dict)
+        self.csv_file.flush()
+
+
 @cli.command()
 @click.pass_context
 def train(ctx):
@@ -81,14 +155,14 @@ def train(ctx):
     cprint(" function")
     DATASET_NAME = 'eye_v2'
     MODEL_NAME = 'baseline_v9_multiclass'
-    MODEL_INFO = 'softmax-cce-lw_1_0.01'
+    MODEL_INFO = 'softmax-cce-lw_1_0.01-time'
     BATCH_NORMALIZATION = True
     LEARNING_RATE = "1e_2"
     EXPERIMENT_NAME = f"{DATASET_NAME}-{MODEL_NAME}-{MODEL_INFO}-lr_{LEARNING_RATE}" + (
         "-bn" if BATCH_NORMALIZATION else "")
     TEST_DIR_NAME = 'test'
     EPOCH_START = 0
-    EPOCH_END = 8000
+    EPOCH_END = 100
     MODEL_PERIOD = 100
     BATCH_SIZE = 6  # 10
     STEPS_PER_EPOCH = 1  # None
@@ -118,6 +192,7 @@ def train(ctx):
     predicted_set_dir = os.path.join(dataset_path,
                                      f"{TEST_DIR_NAME}-predicted-{COLOR}")
     training_log_file = os.path.join(dataset_path, 'training.csv')
+    training_time_log_file = os.path.join(dataset_path, 'training_time.csv')
     loss_acc_file = os.path.join(dataset_path, 'loss_acc.csv')
     experiments_setting_file = os.path.join(dataset_path,
                                             'experiment_settings.txt')
@@ -164,10 +239,10 @@ def train(ctx):
         trained_weights_file = os.path.join(weights_dir, trained_weights_file)
 
     num_training = 0
-    for root, dirs, files in os.walk(training_images_set_dir):
+    for _, _, files in os.walk(training_images_set_dir):
         num_training += len(files)
     num_validation = 0
-    for root, dirs, files in os.walk(validation_images_set_dir):
+    for _, _, files in os.walk(validation_images_set_dir):
         num_validation += len(files)
     if STEPS_PER_EPOCH is None:
         STEPS_PER_EPOCH = num_training
@@ -251,16 +326,17 @@ def train(ctx):
         period=MODEL_PERIOD)
     csv_logger = CSVLogger(training_log_file, append=True)
     tensorboard = TensorBoard(
-        log_dir=os.path.join(tensorboard_log_dir, str(time())),
+        log_dir=os.path.join(tensorboard_log_dir, str(time.time())),
         histogram_freq=0,
         write_graph=True,
         write_images=True)
     last_epoch = []
     save_output_callback = LambdaCallback(
         on_epoch_end=lambda epoch, logs: (last_epoch.append(epoch)))
+    time_history_callback = TimeHistory(training_time_log_file, append=True)
     callbacks = [
         model_checkpoint, csv_logger, tensorboard, save_output_callback,
-        predict_output
+        predict_output, time_history_callback
     ]
     history = model.fit_generator(
         train_gen,
@@ -454,22 +530,22 @@ def save_result(save_path,
                 visualized_img[visualized_img > 0] = 1
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
-                    io.imsave(
+                    skimage.io.imsave(
                         os.path.join(
                             save_path,
                             f"{file_name}-{weights_name}-{ol+1}-merged.png"),
                         visualized_img)
-                    io.imsave(
+                    skimage.io.imsave(
                         os.path.join(
                             save_path,
                             f"{file_name}-{weights_name}-{ol+1}-0.png"),
                         item[:, :, 0])
-                    io.imsave(
+                    skimage.io.imsave(
                         os.path.join(
                             save_path,
                             f"{file_name}-{weights_name}-{ol+1}-1.png"),
                         item[:, :, 1])
-                    io.imsave(
+                    skimage.io.imsave(
                         os.path.join(
                             save_path,
                             f"{file_name}-{weights_name}-{ol+1}-2.png"),
@@ -479,7 +555,7 @@ def save_result(save_path,
                 item = np.reshape(item, output_shape)
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
-                    io.imsave(
+                    skimage.io.imsave(
                         os.path.join(
                             save_path,
                             f"{file_name}-{weights_name}-{ol+1}-iris.png"),
