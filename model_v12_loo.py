@@ -149,7 +149,7 @@ class TimeHistory(Callback):
 @cli.command()
 @click.pass_context
 def train(ctx):
-    for loo in range(166):
+    for loo in range(1, 16+1):
         #  click.echo('> `train` function')
         cprint("> ", end='')
         cprint("`train`", color='green', end='')
