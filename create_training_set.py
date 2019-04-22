@@ -12,8 +12,8 @@ Unlabelled = [0, 0, 0]
 
 COLOR_DICT = np.array([Background, Sclera, Iris, Unlabelled])
 
-DATASET_NAME = 'eye_v2'
-DATASET_JSON_FILENAME = 'eye_v2-labeled_data'
+DATASET_NAME = 'eye_v3'
+DATASET_JSON_FILENAME = f'{DATASET_NAME}-labeled_data'
 labeled_data_file_path = os.path.join('datasets',
                                       f"{DATASET_JSON_FILENAME}.json")
 dataset_path = os.path.join('datasets', DATASET_NAME)
