@@ -57,7 +57,7 @@ def plot(experiment_name):
 
 
 def plot_average():
-    LOO = 6
+    LOO = 16
 
     graphs_dir = os.path.join('data', 'comparison')
     output1_avg_acc_file = os.path.join(
@@ -66,7 +66,7 @@ def plot_average():
     )
 
     history_list = []
-    for l in range(5):
+    for l in range(LOO):
         experiment_name = f"eye_v3-baseline_v12_multiclass-softmax-cce-lw_1_0.01-loo_{l+1}-lr_1e_2-bn"
         output1_acc_file = os.path.join(graphs_dir,
                                         f"{experiment_name}-output1_acc.png")
