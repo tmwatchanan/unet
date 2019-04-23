@@ -3,7 +3,7 @@ import natsort
 import shutil
 import copy
 
-EXPERIMENT_NAME = 'eye_v3-baseline_v12_multiclass-softmax-cce-lw_1_0.01-loo_{}-lr_1e_2-bn'
+EXPERIMENT_NAME = 'eye_v3-baseline_v13_multiclass-softmax-cce-lw_1_0.01-hsv-loo_{}-lr_1e_2-bn'
 
 eye_v3_dir = os.path.join('datasets', 'eye_v3')
 eye_v3_images_dir = os.path.join(eye_v3_dir, 'images')
