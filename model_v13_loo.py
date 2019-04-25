@@ -151,6 +151,8 @@ def get_preprocessing_function(color_model):
         return 'bgr_to_hsv_preprocessing'
     elif color_model == 'ycbcr':
         return 'bgr_to_ycbcr_preprocessing'
+    elif color_model == 'lab':
+        return 'bgr_to_lab_preprocessing'
     else:
         return 'bgr_to_rgb_preprocessing'
 
@@ -165,7 +167,7 @@ def train(ctx):
         cprint(" function")
         DATASET_NAME = 'eye_v3'
         MODEL_NAME = 'baseline_v13_multiclass'
-        COLOR_MODEL = 'hsv'  # rgb, hsv, ycbcr, gray
+        COLOR_MODEL = 'lab'  # rgb, hsv, ycbcr, lab, gray
         MODEL_INFO = f"softmax-cce-lw_1_0.01-{COLOR_MODEL}-loo_{loo}"
         BATCH_NORMALIZATION = True
         LEARNING_RATE = "1e_2"
@@ -525,6 +527,10 @@ def bgr_to_ycbcr_preprocessing(img):
     return ycbcr
 
 
+def bgr_to_lab_preprocessing(img):
+    lab = cv2.cvtColor(img, cv2.COLOR_BGR2Lab)
+    return lab
+
 def train_generator(batch_size,
                     train_path,
                     image_folder,
@@ -748,7 +754,7 @@ def test(experiment_name, weight, test_dir_name, batch_normalization):
     INPUT_SIZE = (256, 256, 3)
     TARGET_SIZE = (256, 256)
     NUM_CLASSES = 3
-    COLOR_MODEL = 'hsv'  # rgb, hsv, ycbcr, gray
+    COLOR_MODEL = 'rgb'  # rgb, hsv, ycbcr, lab, gray
 
     cprint(f"The weight at epoch#", color='green', end='')
     cprint(f"{weight}", color='green', attrs=['bold'], end='')
