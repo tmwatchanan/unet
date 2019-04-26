@@ -43,12 +43,13 @@ def cli():
 
 
 class PredictOutput(Callback):
-    def __init__(self, test_set_dir, target_size, color, weights_dir,
+    def __init__(self, test_set_dir, target_size, color, preprocessing_function_str, weights_dir,
                  num_classes, predicted_set_dir, test_files, period):
         #  self.out_log = []
         self.test_set_dir = test_set_dir
         self.target_size = target_size
         self.color = color
+        self.preprocessing_function_str = preprocessing_function_str
         self.weights_dir = weights_dir
         self.num_classes = num_classes
         self.predicted_set_dir = predicted_set_dir
@@ -59,8 +60,11 @@ class PredictOutput(Callback):
         predict_epoch = epoch + 1
         if (predict_epoch % self.period == 0):
             # test the model
-            test_gen = test_generator(self.test_set_dir, self.target_size,
-                                      self.color)
+            test_gen = test_generator(
+                self.test_set_dir,
+                self.target_size,
+                self.color,
+                self.preprocessing_function_str)
             num_test_files = 12  # sum(1 for _ in test_gen)
             results = self.model.predict_generator(
                 test_gen, steps=num_test_files, verbose=1)
@@ -345,6 +349,7 @@ def train(ctx):
             test_set_dir,
             TARGET_SIZE,
             COLOR_MODEL,
+            preprocessing_function_str,
             weights_dir,
             NUM_CLASSES,
             predicted_set_dir,
