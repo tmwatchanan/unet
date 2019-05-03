@@ -481,9 +481,10 @@ def create_model(pretrained_weights=None,
     return model
 
 
-def adjust_data(img, mask, flag_multi_class, num_class, target_size):
+def adjust_data(img, mask, flag_multi_class, num_class, target_size, img_color_model):
     if (flag_multi_class):
-        #  img = img / 255
+        if img_color_model in ('rgb', 'ycbcr'):
+            img = img / 255
         #  cv2.imshow('img', img)
 
         mask = mask / 255
@@ -547,7 +548,7 @@ def train_generator(batch_size,
     train_generator = zip(image_generator, mask_generator)
     for (img, mask) in train_generator:
         img, mask = adjust_data(img, mask, flag_multi_class, num_class,
-                                target_size)
+                                target_size, image_color)
         yield (img, mask)
 
 
