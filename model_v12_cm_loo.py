@@ -42,13 +42,23 @@ def cli():
     pass
 
 
+def get_color_convertion_function(color_model):
+    if color_model == 'hsv':
+        color_convertion_function = skimage.color.rgb2hsv
+    elif color_model == 'ycbcr':
+        color_convertion_function = skimage.color.rgb2ycbcr
+    else:
+        color_convertion_function = None
+    return color_convertion_function
+
+
 class PredictOutput(Callback):
-    def __init__(self, test_set_dir, target_size, color, weights_dir,
+    def __init__(self, test_set_dir, target_size, color_model, weights_dir,
                  num_classes, predicted_set_dir, period):
         #  self.out_log = []
         self.test_set_dir = test_set_dir
         self.target_size = target_size
-        self.color = color
+        self.color_model = color_model
         self.weights_dir = weights_dir
         self.num_classes = num_classes
         self.predicted_set_dir = predicted_set_dir
@@ -57,30 +67,12 @@ class PredictOutput(Callback):
     def on_epoch_end(self, epoch, logs=None):
         predict_epoch = epoch + 1
         if (predict_epoch % self.period == 0):
-            # test the model
-            #  test_gen = test_generator(self.test_set_dir, self.target_size,
-                                      #  self.color)
-            test_datagen = ImageDataGenerator(preprocessing_function=skimage.color.rgb2ycbcr)
-            test_gen = test_datagen.flow_from_directory(
-                    self.test_set_dir,
-                    classes=None,
-                    class_mode=None,
-                    color_mode="rgb",
-                    target_size=(256, 256),
-                    batch_size=1)
-            #  test_gen = train_generator(6, self.test_set_dir, 'images', 'labels', data_gen_args, save_to_dir=None, image_color_mode="rgb", mask_color_mode="rgb", flag_multi_class=True, num_class=3)
-
-            img_test_set_dir = os.path.join(self.test_set_dir, 'images')
-            test_files = [
-                name for name in os.listdir(img_test_set_dir)
-                if os.path.isfile(os.path.join(img_test_set_dir, name))
-            ]
+            test_gen = test_generator(test_path=self.test_set_dir, target_size=self.target_size, color_model=self.color_model)
+            test_files = test_gen.filenames
             num_test_files = len(test_files)
 
-            #  num_test_files = 12  # sum(1 for _ in test_gen)
             results = self.model.predict_generator(
                 test_gen, steps=num_test_files, verbose=1)
-            #  print(test_files)
             last_weights_file = f"{predict_epoch:08d}"
             save_result(
                 self.predicted_set_dir,
@@ -171,8 +163,9 @@ def train(ctx):
         cprint("`train`", color='green', end='')
         cprint(" function")
         DATASET_NAME = 'eye_v3'
+        COLOR_MODEL = 'ycbcr'  # rgb, hsv, ycbcr, gray
         MODEL_NAME = 'baseline_v12_multiclass'
-        MODEL_INFO = f"softmax-cce-lw_1_0.01-rgb2ycbcr-loo_{loo}"
+        MODEL_INFO = f"softmax-cce-lw_1_0.01-{COLOR_MODEL}-loo_{loo}"
         BATCH_NORMALIZATION = True
         LEARNING_RATE = "1e_2"
         EXPERIMENT_NAME = f"{DATASET_NAME}-{MODEL_NAME}-{MODEL_INFO}-lr_{LEARNING_RATE}" + (
@@ -186,7 +179,6 @@ def train(ctx):
         INPUT_SIZE = (256, 256, 3)
         TARGET_SIZE = (256, 256)
         NUM_CLASSES = 3
-        COLOR = 'rgb'  # rgb, grayscale
 
         if BATCH_SIZE > 10:
             answer = input(
@@ -209,7 +201,7 @@ def train(ctx):
                                               'augmentation')
         test_set_dir = os.path.join(dataset_path, TEST_DIR_NAME)
         predicted_set_dir = os.path.join(dataset_path,
-                                         f"{TEST_DIR_NAME}-predicted-{COLOR}")
+                                         f"{TEST_DIR_NAME}-predicted-{COLOR_MODEL}")
         training_log_file = os.path.join(dataset_path, 'training.csv')
         training_time_log_file = os.path.join(dataset_path,
                                               'training_time.csv')
@@ -245,7 +237,7 @@ def train(ctx):
                 f.write(f"INPUT_SIZE={INPUT_SIZE}\n")
                 f.write(f"TARGET_SIZE={TARGET_SIZE}\n")
                 f.write(f"NUM_CLASSES={NUM_CLASSES}\n")
-                f.write(f"COLOR={COLOR}\n")
+                f.write(f"COLOR_MODEL={COLOR_MODEL}\n")
                 f.write(f"=======================\n")
 
         save_experiment_settings_file()
@@ -299,8 +291,8 @@ def train(ctx):
             'labels',
             data_gen_args,
             save_to_dir=None,
-            image_color_mode=COLOR,
-            mask_color_mode=COLOR,
+            image_color=COLOR_MODEL,
+            mask_color=COLOR_MODEL,
             flag_multi_class=True,
             num_class=NUM_CLASSES)
         validation_gen = train_generator(
@@ -310,12 +302,10 @@ def train(ctx):
             'labels',
             dict(),
             save_to_dir=None,
-            image_color_mode=COLOR,
-            mask_color_mode=COLOR,
+            image_color=COLOR_MODEL,
+            mask_color=COLOR_MODEL,
             flag_multi_class=True,
             num_class=NUM_CLASSES)
-        test_gen = test_generator(
-            test_set_dir, target_size=TARGET_SIZE, color=COLOR)
 
         # train the model
         #  new_weights_name = '{epoch:08d}'
@@ -333,7 +323,7 @@ def train(ctx):
         predict_output = PredictOutput(
             test_set_dir,
             TARGET_SIZE,
-            COLOR,
+            COLOR_MODEL,
             weights_dir,
             NUM_CLASSES,
             predicted_set_dir,
@@ -508,8 +498,8 @@ def train_generator(batch_size,
                     image_folder,
                     mask_folder,
                     aug_dict,
-                    image_color_mode="grayscale",
-                    mask_color_mode="grayscale",
+                    image_color='rgb',
+                    mask_color='rgb',
                     image_save_prefix="image",
                     mask_save_prefix="mask",
                     flag_multi_class=False,
@@ -523,9 +513,17 @@ def train_generator(batch_size,
     if you want to visualize the results of generator, set save_to_dir = "your path"
     '''
     image_aug_dict = copy.deepcopy(aug_dict)
-    image_aug_dict['preprocessing_function'] = skimage.color.rgb2ycbcr
+    image_aug_dict['preprocessing_function'] = get_color_convertion_function(image_color)
     image_datagen = ImageDataGenerator(**image_aug_dict)
     mask_datagen = ImageDataGenerator(**aug_dict)
+    if image_color == 'gray':
+        image_color_mode = 'grayscale'
+    else:
+        image_color_mode = 'rgb'
+    if mask_color == 'gray':
+        mask_color_mode = 'grayscale'
+    else:
+        mask_color_mode = 'rgb'
     image_generator = image_datagen.flow_from_directory(
         train_path,
         classes=[image_folder],
@@ -553,27 +551,17 @@ def train_generator(batch_size,
         yield (img, mask)
 
 
-def test_generator(test_path, target_size=(256, 256), color='rgb'):
-    file_list = [
-        f for f in os.listdir(test_path)
-        if os.path.isfile(os.path.join(test_path, f))
-    ]
-    for file_name in file_list:
-        file_path = os.path.join(test_path, file_name)
-        #  if color == 'rgb':
-            #  imread_flag = cv2.IMREAD_COLOR
-        #  elif color == 'grayscale':
-            #  imread_flag = cv2.IMREAD_GRAYSCALE
-         
-        #  img = cv2.cvtColor(img, cv2.COLOR_BGR2YCbCr)
-        #  img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        #  img = img[: :, ::-1] # convert bgr to rgb
-        img = skimage.io.imread(file_path)
-        img = skimage.color.rgb2ycbcr(img)
-        #  img = img / 255
-        img = skimage.transform.resize(img, target_size)
-        img = np.reshape(img, (1, ) + img.shape)
-        yield [img]
+def test_generator(test_path, target_size=(256, 256), color_model='rgb'):
+    color_convertion_function = get_color_convertion_function(color_model)
+    test_datagen = ImageDataGenerator(preprocessing_function=color_convertion_function)
+    test_gen = test_datagen.flow_from_directory(
+            test_path,
+            classes=None,
+            class_mode=None,
+            color_mode="rgb",
+            target_size=target_size,
+            batch_size=1)
+    return test_gen
 
 
 def save_result(save_path,
@@ -584,13 +572,9 @@ def save_result(save_path,
                 num_class=2):
     for ol in range(len(npyfile)):
         layer_output = npyfile[ol]
-        print(layer_output.shape)
         for i, item in enumerate(layer_output):
-            #  print(file_names)
-            #  print(file_names[i])
-            #  file_name = os.path.splitext(file_names[i])[0]
-            print(i)
-            file_name=file_names[i]
+            file_name = os.path.split(file_names[i])[1]
+            #  file_name=file_names[i]
             if ol == 0:
                 output_shape = (256, 256, num_class)
                 item = np.reshape(item, output_shape)
@@ -734,7 +718,7 @@ def test(experiment_name, weight, test_dir_name, batch_normalization):
     INPUT_SIZE = (256, 256, 3)
     TARGET_SIZE = (256, 256)
     NUM_CLASSES = 3
-    COLOR = 'rgb'  # rgb, grayscale
+    COLOR_MODEL = 'ycbcr'  # rgb, hsv, ycbcr, gray
 
     cprint(f"The weight at epoch#", color='green', end='')
     cprint(f"{weight}", color='green', attrs=['bold'], end='')
@@ -795,7 +779,7 @@ def test(experiment_name, weight, test_dir_name, batch_normalization):
 
     # test the model
     test_gen = test_generator(
-        test_set_dir, target_size=TARGET_SIZE, color=COLOR)
+        test_path, test_set_dir, target_size=TARGET_SIZE, color=COLOR)
     results = model.predict_generator(
         test_gen, steps=num_test_files, verbose=1)
     save_result(
