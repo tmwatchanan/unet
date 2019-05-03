@@ -60,10 +60,10 @@ class PredictOutput(Callback):
             # test the model
             #  test_gen = test_generator(self.test_set_dir, self.target_size,
                                       #  self.color)
-            test_datagen = ImageDataGenerator(preprocessing_function=skimage.color.rgb2hsv)
+            test_datagen = ImageDataGenerator(preprocessing_function=skimage.color.rgb2ycbcr)
             test_gen = test_datagen.flow_from_directory(
                     self.test_set_dir,
-                    classes=['images'],
+                    classes=None,
                     class_mode=None,
                     color_mode="rgb",
                     target_size=(256, 256),
@@ -76,8 +76,6 @@ class PredictOutput(Callback):
                 if os.path.isfile(os.path.join(img_test_set_dir, name))
             ]
             num_test_files = len(test_files)
-            print(img_test_set_dir)
-            print(test_files)
 
             #  num_test_files = 12  # sum(1 for _ in test_gen)
             results = self.model.predict_generator(
@@ -167,14 +165,14 @@ class TimeHistory(Callback):
 @cli.command()
 @click.pass_context
 def train(ctx):
-    for loo in range(2, 16+1):
+    for loo in range(1, 16+1):
         #  click.echo('> `train` function')
         cprint("> ", end='')
         cprint("`train`", color='green', end='')
         cprint(" function")
         DATASET_NAME = 'eye_v3'
         MODEL_NAME = 'baseline_v12_multiclass'
-        MODEL_INFO = f"softmax-cce-lw_1_0.01-rgb2hsv-loo_{loo}"
+        MODEL_INFO = f"softmax-cce-lw_1_0.01-rgb2ycbcr-loo_{loo}"
         BATCH_NORMALIZATION = True
         LEARNING_RATE = "1e_2"
         EXPERIMENT_NAME = f"{DATASET_NAME}-{MODEL_NAME}-{MODEL_INFO}-lr_{LEARNING_RATE}" + (
@@ -525,7 +523,7 @@ def train_generator(batch_size,
     if you want to visualize the results of generator, set save_to_dir = "your path"
     '''
     image_aug_dict = copy.deepcopy(aug_dict)
-    image_aug_dict['preprocessing_function'] = skimage.color.rgb2hsv
+    image_aug_dict['preprocessing_function'] = skimage.color.rgb2ycbcr
     image_datagen = ImageDataGenerator(**image_aug_dict)
     mask_datagen = ImageDataGenerator(**aug_dict)
     image_generator = image_datagen.flow_from_directory(
@@ -571,7 +569,7 @@ def test_generator(test_path, target_size=(256, 256), color='rgb'):
         #  img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         #  img = img[: :, ::-1] # convert bgr to rgb
         img = skimage.io.imread(file_path)
-        img = skimage.color.rgb2hsv(img)
+        img = skimage.color.rgb2ycbcr(img)
         #  img = img / 255
         img = skimage.transform.resize(img, target_size)
         img = np.reshape(img, (1, ) + img.shape)
