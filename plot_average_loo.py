@@ -33,7 +33,8 @@ def draw_graph(epoch_list, x, y, x_label, y_label, title, legend, is_moving_aver
 
 @cli.command()
 @click.option('--moving_average', 'is_moving_average', is_flag=True)
-def plot(is_moving_average):
+@click.option('--show', 'is_show_plots', is_flag=True)
+def plot(is_moving_average, is_show_plots):
     LOO = 16
     #  experiment_name_template = "eye_v3-baseline_v12_multiclass-softmax-cce-lw_1_0.01-loo_{0}-lr_1e_2-bn"
     experiment_name_template = "eye_v3-baseline_v12_multiclass-softmax-cce-lw_1_0.01-ycbcr-loo_{0}-lr_1e_2-bn"
@@ -94,7 +95,8 @@ def plot(is_moving_average):
     print(f"MAX validation = {max_val}")
 
     # immediately show plotted graphs
-    plt.show()
+    if is_show_plots:
+        plt.show()
 
 
 if __name__ == "__main__":
