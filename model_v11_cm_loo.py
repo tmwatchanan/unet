@@ -67,8 +67,9 @@ class PredictOutput(Callback):
     def on_epoch_end(self, epoch, logs=None):
         predict_epoch = epoch + 1
         if (predict_epoch % self.period == 0):
-            test_gen = test_generator(test_path=self.test_set_dir, target_size=self.target_size, color_model=self.color_model)
-            test_files = test_gen.filenames
+            test_flow = get_test_data(test_path=self.test_set_dir, target_size=self.target_size, color_model=self.color_model)
+            test_gen = test_generator(test_flow, self.color_model)
+            test_files = test_flow.filenames
             num_test_files = len(test_files)
 
             results = self.model.predict_generator(
@@ -481,9 +482,10 @@ def create_model(pretrained_weights=None,
     return model
 
 
-def adjust_data(img, mask, flag_multi_class, num_class, target_size):
+def adjust_data(img, mask, flag_multi_class, num_class, target_size, img_color_model):
     if (flag_multi_class):
-        img = img / 255
+        if img_color_model in ('rgb', 'ycbcr'):
+            img = img / 255
         img = add_position_layers(img, -1)
         #  cv2.imshow('img', img)
 
@@ -548,22 +550,27 @@ def train_generator(batch_size,
     train_generator = zip(image_generator, mask_generator)
     for (img, mask) in train_generator:
         img, mask = adjust_data(img, mask, flag_multi_class, num_class,
-                                target_size)
+                                target_size, image_color)
         yield (img, mask)
 
 
-def test_generator(test_path, target_size=(256, 256), color_model='rgb'):
+def get_test_data(test_path, target_size=(256, 256), color_model='rgb'):
     color_convertion_function = get_color_convertion_function(color_model)
     test_datagen = ImageDataGenerator(preprocessing_function=color_convertion_function)
-    test_gen = test_datagen.flow_from_directory(
+    test_flow = test_datagen.flow_from_directory(
             test_path,
             classes=None,
             class_mode=None,
             color_mode="rgb",
             target_size=target_size,
             batch_size=1)
-    for img in test_gen:
-        img = img / 255
+    return test_flow
+
+
+def test_generator(test_flow, color_model):
+    for img in test_flow:
+        if color_model in ('rgb', 'ycbcr'):
+            img = img / 255
         img = add_position_layers(img, -1)
         yield [img]
 
@@ -722,7 +729,7 @@ def test(experiment_name, weight, test_dir_name, batch_normalization):
     INPUT_SIZE = (256, 256, 5)
     TARGET_SIZE = (256, 256)
     NUM_CLASSES = 3
-    COLOR_MODEL = 'rgb'  # rgb, hsv, ycbcr, gray
+    COLOR_MODEL = 'hsv'  # rgb, hsv, ycbcr, gray
 
     cprint(f"The weight at epoch#", color='green', end='')
     cprint(f"{weight}", color='green', attrs=['bold'], end='')
@@ -760,6 +767,7 @@ def test(experiment_name, weight, test_dir_name, batch_normalization):
             f.write(f"INPUT_SIZE={INPUT_SIZE}\n")
             f.write(f"TARGET_SIZE={TARGET_SIZE}\n")
             f.write(f"NUM_CLASSES={NUM_CLASSES}\n")
+            f.write(f"COLOR_MODEL={COLOR_MODEL}\n")
             f.write(f"=======================\n")
 
     save_prediction_settings_file()
@@ -774,16 +782,12 @@ def test(experiment_name, weight, test_dir_name, batch_normalization):
         input_size=INPUT_SIZE,
         batch_normalization=batch_normalization)
 
-    test_files = [
-        name for name in os.listdir(test_set_dir)
-        if os.path.isfile(os.path.join(test_set_dir, name))
-    ]
-    #  print(test_files)
+    # test the model
+    test_flow = get_test_data(test_path=test_set_dir, target_size=TARGET_SIZE, color_model=COLOR_MODEL)
+    test_gen = test_generator(test_flow, COLOR_MODEL)
+    test_files = test_flow.filenames
     num_test_files = len(test_files)
 
-    # test the model
-    test_gen = test_generator(
-        test_path, test_set_dir, target_size=TARGET_SIZE, color=COLOR)
     results = model.predict_generator(
         test_gen, steps=num_test_files, verbose=1)
     save_result(
