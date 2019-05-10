@@ -175,7 +175,7 @@ def train(ctx):
         TEST_DIR_NAME = 'test'
         EPOCH_START = 0
         EPOCH_END = 5000
-        MODEL_PERIOD = 1
+        MODEL_PERIOD = 100
         BATCH_SIZE = 6  # 10
         STEPS_PER_EPOCH = 1  # None
         INPUT_SIZE = (256, 256, 5)
