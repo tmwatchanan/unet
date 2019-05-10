@@ -261,7 +261,7 @@ def train(ctx):
             num_validation += len(files)
         if STEPS_PER_EPOCH is None:
             STEPS_PER_EPOCH = num_training
-        print(f"num_traning={num_training}")
+        print(f"num_training={num_training}")
         print(f"num_validation={num_validation}")
 
         model = create_model(
