@@ -1,5 +1,6 @@
 import numpy as np
 import cv2
+import skimage
 
 
 def add_position_layers(img, axis):
@@ -28,3 +29,12 @@ def max_rgb_filter(image):
 
     # merge the channels back together and return the image
     return cv2.merge([B, G, R])
+
+
+def add_sobel_filters(img, axis):
+    img_gray = skimage.color.rgb2gray(img)
+    im_sobel_h = skimage.filters.sobel_h(img_gray)
+    im_sobel_v = skimage.filters.sobel_v(img_gray)
+    img = np.insert(img, -1, im_sobel_h, axis=axis)
+    img = np.insert(img, -1, im_sobel_v, axis=axis)
+    return img
