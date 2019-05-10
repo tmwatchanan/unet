@@ -37,7 +37,7 @@ def draw_graph(epoch_list, x, y, x_label, y_label, title, legend, is_moving_aver
 def plot(is_moving_average, is_show_plots):
     LOO = 16
     #  experiment_name_template = "eye_v3-baseline_v12_multiclass-softmax-cce-lw_1_0.01-loo_{0}-lr_1e_2-bn"
-    experiment_name_template = "eye_v3-baseline_v12_multiclass-softmax-cce-lw_1_0.01-ycbcr-loo_{0}-lr_1e_2-bn"
+    experiment_name_template = "eye_v3-baseline_v11_multiclass-softmax-cce-lw_1_0.01-hsv-loo_{0}-lr_1e_2-bn"
 
     graphs_dir = os.path.join('data', 'comparison')
 
@@ -56,6 +56,12 @@ def plot(is_moving_average, is_show_plots):
                    history_data['val_output1_acc'], 'Accuracy', 'Epoch',
                    graph_title,
                    ['Train Accuracy', 'Validation Accuracy'], is_moving_average)
+        max_train = calculate_max(history_data['output1_acc'])
+        max_val = calculate_max(history_data['val_output1_acc'])
+        stats_text = f"MAX train = {max_train}\nMAX validation = {max_val}"
+        anchored_text = AnchoredText(stats_text, loc=3) # 3=lower left
+        ax = fig_avg.gca()
+        ax.add_artist(anchored_text)
         fig_loo.savefig(output1_acc_file, bbox_inches='tight')
         history_list.append(history_data)
     epoch_list = [a['epoch'] for a in history_list]
@@ -72,10 +78,8 @@ def plot(is_moving_average, is_show_plots):
 
     average_name = f"avg_1_{LOO}"
     experiment_name = experiment_name_template.format(average_name)
-    output1_avg_acc_file = os.path.join(
-        graphs_dir,
-        experiment_name + '.png'
-    )
+    output1_avg_acc_filename = f"{experiment_name}{moving_average_string}.png"
+    output1_avg_acc_file = os.path.join(graphs_dir, output1_avg_acc_filename)
     graph_title = f"{experiment_name}\nOutput 1 Model Average Accuracy"
     graph_title += " (moving average)" if is_moving_average else ""
     fig_avg = draw_graph(epoch_list, avg_output1_acc_list, avg_output1_val_acc_list,
@@ -83,8 +87,8 @@ def plot(is_moving_average, is_show_plots):
                graph_title,
                ['Train Accuracy', 'Validation Accuracy'], is_moving_average)
     #  fig_avg.text(3, 8, 'boxed italics text in data coords', style='italic', bbox={'facecolor': 'red', 'alpha': 0.5, 'pad': 10})
-    max_train = format(np.max(avg_output1_acc_list) * 100, '3.2f')
-    max_val = format(np.max(avg_output1_val_acc_list) * 100, '3.2f')
+    max_train = calculate_max(avg_output1_acc_list)
+    max_val = calculate_max(avg_output1_val_acc_list)
     stats_text = f"MAX train = {max_train}\nMAX validation = {max_val}"
     anchored_text = AnchoredText(stats_text, loc=3) # 3=lower left
     ax = fig_avg.gca()
@@ -97,6 +101,10 @@ def plot(is_moving_average, is_show_plots):
     # immediately show plotted graphs
     if is_show_plots:
         plt.show()
+
+
+def calculate_max(data):
+    return format(np.max(np) * 100, '3.2f')
 
 
 if __name__ == "__main__":
