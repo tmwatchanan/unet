@@ -175,7 +175,7 @@ def train(ctx):
         TEST_DIR_NAME = 'test'
         EPOCH_START = 0
         EPOCH_END = 5000
-        MODEL_PERIOD = 100
+        MODEL_PERIOD = 1
         BATCH_SIZE = 6  # 10
         STEPS_PER_EPOCH = 1  # None
         INPUT_SIZE = (256, 256, 5)
@@ -575,10 +575,14 @@ def get_test_data(test_path, target_size=(256, 256), color_model='rgb'):
 
 def test_generator(test_flow, color_model):
     for img in test_flow:
+        processed_img = []
         if color_model in ('rgb', 'ycbcr'):
             img = img / 255
-        img = add_sobel_filters(img, -1)
-        yield [img]
+        for im in img:
+            im = add_sobel_filters(im, -1)
+            processed_img.append(im)
+        processed_img = np.array(processed_img)
+        yield [processed_img]
 
 
 def save_result(save_path,
