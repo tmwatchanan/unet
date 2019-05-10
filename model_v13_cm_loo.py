@@ -484,17 +484,20 @@ def create_model(pretrained_weights=None,
 
 
 def adjust_data(img, mask, flag_multi_class, num_class, target_size, img_color_model):
+    # img's shape is (BATCH_SIZE, 256, 256)
+
+    processed_img = []
     if (flag_multi_class):
         if img_color_model in ('rgb', 'ycbcr'):
             img = img / 255
-        img = add_sobel_filters(img, -1)
-        #  cv2.imshow('img', img)
+        for im in img:
+            im_added_sobel = add_sobel_filters(im, -1)
+            processed_img.append(im_added_sobel)
+        processed_img = np.array(processed_img)
 
         mask = mask / 255
-        #  cv2.imshow('mask', mask)
-        #  cv2.waitKey()
         mask_iris = mask[:, :, :, 0]
-    return [img], [mask, mask_iris]
+    return [processed_img], [mask, mask_iris]
 
 
 def train_generator(batch_size,
@@ -551,8 +554,6 @@ def train_generator(batch_size,
         seed=seed)
     train_generator = zip(image_generator, mask_generator)
     for (img, mask) in train_generator:
-        print(img)
-        exit()
         img, mask = adjust_data(img, mask, flag_multi_class, num_class,
                                 target_size, image_color)
         yield (img, mask)
