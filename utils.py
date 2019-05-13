@@ -1,6 +1,6 @@
 import numpy as np
 import cv2
-import skimage
+from skimage import filters, feature, color
 
 
 def add_position_layers(img, axis):
@@ -32,15 +32,15 @@ def max_rgb_filter(image):
 
 
 def add_sobel_filters(img, axis):
-    img_gray = skimage.color.rgb2gray(img)
-    im_sobel_h = skimage.filters.sobel_h(img_gray)
-    im_sobel_v = skimage.filters.sobel_v(img_gray)
+    img_gray = color.rgb2gray(img)
+    im_sobel_h = filters.sobel_h(img_gray)
+    im_sobel_v = filters.sobel_v(img_gray)
     img = np.insert(img, -1, im_sobel_h, axis=axis)
     img = np.insert(img, -1, im_sobel_v, axis=axis)
     return img
 
 
 def add_canny_filter(img, axis):
-    im_canny = skimage.feature.canny(img, sigma=1)
+    im_canny = feature.canny(img, sigma=1)
     img = np.insert(img, -1, im_canny, axis=axis)
     return img
