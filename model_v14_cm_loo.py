@@ -493,7 +493,7 @@ def adjust_data(img, mask, flag_multi_class, num_class, target_size, img_color_m
         if img_color_model in ('rgb', 'ycbcr'):
             img = img / 255
         for im in img:
-            im_added_sobel = add_sobel_filters(im, -1)
+            im_added_sobel = add_canny_filter(im, -1)
             processed_img.append(im_added_sobel)
         processed_img = np.array(processed_img)
 
@@ -581,7 +581,7 @@ def test_generator(test_flow, color_model):
         if color_model in ('rgb', 'ycbcr'):
             img = img / 255
         for im in img:
-            im = add_sobel_filters(im, -1)
+            im = add_canny_filter(im, -1)
             processed_img.append(im)
         processed_img = np.array(processed_img)
         yield [processed_img]
