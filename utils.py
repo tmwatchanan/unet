@@ -41,6 +41,7 @@ def add_sobel_filters(img, axis):
 
 
 def add_canny_filter(img, axis):
-    im_canny = feature.canny(img, sigma=1)
+    img_gray = color.rgb2gray(img)
+    im_canny = feature.canny(img_gray, sigma=1)
     img = np.insert(img, -1, im_canny, axis=axis)
     return img
