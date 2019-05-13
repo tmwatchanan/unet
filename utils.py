@@ -38,3 +38,9 @@ def add_sobel_filters(img, axis):
     img = np.insert(img, -1, im_sobel_h, axis=axis)
     img = np.insert(img, -1, im_sobel_v, axis=axis)
     return img
+
+
+def add_canny_filter(img, axis):
+    im_canny = skimage.feature.canny(img, sigma=1)
+    img = np.insert(img, -1, im_canny, axis=axis)
+    return img
