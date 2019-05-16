@@ -54,7 +54,7 @@ def get_color_convertion_function(color_model):
 
 class PredictOutput(Callback):
     def __init__(self, test_set_dir, target_size, color_model, weights_dir,
-                 num_classes, predicted_set_dir, period):
+                 num_classes, predicted_set_dir, period, canny_sigma):
         #  self.out_log = []
         self.test_set_dir = test_set_dir
         self.target_size = target_size
@@ -63,13 +63,14 @@ class PredictOutput(Callback):
         self.num_classes = num_classes
         self.predicted_set_dir = predicted_set_dir
         self.period = period
+        self.canny_sigma = canny_sigma
 
     def on_epoch_end(self, epoch, logs=None):
         predict_epoch = epoch + 1
         if (predict_epoch % self.period == 0):
             test_flow = get_test_data(
                 test_path=self.test_set_dir, target_size=self.target_size, color_model=self.color_model)
-            test_gen = test_generator(test_flow, self.color_model)
+            test_gen = test_generator(test_flow, self.color_model, self.canny_sigma)
             test_files = test_flow.filenames
             num_test_files = len(test_files)
 
@@ -331,7 +332,8 @@ def train(ctx):
             weights_dir,
             NUM_CLASSES,
             predicted_set_dir,
-            period=MODEL_PERIOD)
+            period=MODEL_PERIOD,
+            canny_sigma=CANNY_SIGMA)
         csv_logger = CSVLogger(training_log_file, append=True)
         tensorboard = TensorBoard(
             log_dir=os.path.join(tensorboard_log_dir, str(time.time())),
@@ -485,7 +487,7 @@ def create_model(pretrained_weights=None,
     return model
 
 
-def adjust_data(img, mask, flag_multi_class, num_class, target_size, img_color_model):
+def adjust_data(img, mask, flag_multi_class, num_class, target_size, img_color_model, canny_sigma):
     # img's shape is (BATCH_SIZE, 256, 256)
 
     processed_img = []
@@ -493,7 +495,7 @@ def adjust_data(img, mask, flag_multi_class, num_class, target_size, img_color_m
         if img_color_model in ('rgb', 'ycbcr'):
             img = img / 255
         for im in img:
-            im_added_sobel = add_canny_filter(im, -1)
+            im_added_sobel = add_canny_filter(im, -1, canny_sigma)
             processed_img.append(im_added_sobel)
         processed_img = np.array(processed_img)
 
@@ -515,7 +517,8 @@ def train_generator(batch_size,
                     num_class=2,
                     save_to_dir=None,
                     target_size=(256, 256),
-                    seed=1):
+                    seed=1,
+                    canny_sigma=1):
     '''
     can generate image and mask at the same time
     use the same seed for image_datagen and mask_datagen to ensure the transformation for image and mask is the same
@@ -554,10 +557,10 @@ def train_generator(batch_size,
         save_to_dir=save_to_dir,
         save_prefix=mask_save_prefix,
         seed=seed)
-    train_generator = zip(image_generator, mask_generator)
-    for (img, mask) in train_generator:
+    train_mask_flow = zip(image_generator, mask_generator)
+    for (img, mask) in train_mask_flow:
         img, mask = adjust_data(img, mask, flag_multi_class, num_class,
-                                target_size, image_color)
+                                target_size, image_color, canny_sigma=1)
         yield (img, mask)
 
 
@@ -575,13 +578,13 @@ def get_test_data(test_path, target_size=(256, 256), color_model='rgb'):
     return test_flow
 
 
-def test_generator(test_flow, color_model):
+def test_generator(test_flow, color_model, canny_sigma):
     for img in test_flow:
         processed_img = []
         if color_model in ('rgb', 'ycbcr'):
             img = img / 255
         for im in img:
-            im = add_canny_filter(im, -1)
+            im = add_canny_filter(im, -1, canny_sigma)
             processed_img.append(im)
         processed_img = np.array(processed_img)
         yield [processed_img]
@@ -729,10 +732,12 @@ def plot(experiment_name):
 @click.argument('weight')
 @click.argument('test_dir_name')
 @click.argument('batch_normalization')
-def test(experiment_name, weight, test_dir_name, batch_normalization):
+@click.argument('canny_sigma')
+def test(experiment_name, weight, test_dir_name, batch_normalization, canny_sigma):
     cprint(f"> Running `test` command on ", color='green', end='')
     cprint(f"{experiment_name}", color='green', attrs=['bold'], end=', ')
-    cprint(f"{batch_normalization}", color='grey', attrs=['bold'], end='')
+    cprint(f"{batch_normalization}", color='grey', attrs=['bold'], end=', ')
+    cprint(f"{canny_sigma}", color='grey', attrs=['bold'], end='')
     cprint(f" experiment", color='green')
     #  experiment_name = "eye_v2-baseline_v8_multiclass-softmax-cce-lw_8421-lr_1e_3"
     #  weight = "98800"
@@ -797,7 +802,7 @@ def test(experiment_name, weight, test_dir_name, batch_normalization):
     # test the model
     test_flow = get_test_data(test_path=test_set_dir,
                               target_size=TARGET_SIZE, color_model=COLOR_MODEL)
-    test_gen = test_generator(test_flow, COLOR_MODEL)
+    test_gen = test_generator(test_flow, COLOR_MODEL, canny_sigma)
     test_files = test_flow.filenames
     num_test_files = len(test_files)
 
