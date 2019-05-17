@@ -569,7 +569,8 @@ def get_test_data(test_path, target_size=(256, 256), color_model='rgb'):
         class_mode=None,
         color_mode="rgb",
         target_size=target_size,
-        batch_size=1)
+        batch_size=1,
+        shuffle=True)
     return test_flow
 
 

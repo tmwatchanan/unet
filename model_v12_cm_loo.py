@@ -562,7 +562,8 @@ def get_test_data(test_path, target_size=(256, 256), color_model='rgb'):
             class_mode=None,
             color_mode="rgb",
             target_size=target_size,
-            batch_size=1)
+            batch_size=1,
+            shuffle=False)
     return test_flow
 
 
@@ -570,7 +571,6 @@ def test_generator(test_flow, color_model):
     for img in test_flow:
         if color_model in ('rgb', 'ycbcr'):
             img = img / 255
-        img = add_position_layers(img, -1)
         yield [img]
 
 
