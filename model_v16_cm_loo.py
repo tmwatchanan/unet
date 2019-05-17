@@ -313,6 +313,7 @@ def train(ctx):
         #  new_weights_name = '{epoch:08d}'
         #  new_weights_file = model_filename.format(new_weights_name)
         new_weights_file = '{epoch:08d}.hdf5'
+        # new_weights_file = '{epoch:08d}-loss-{loss:.3f}-acc-{acc:.3f}-vloss-{val_loss:.3f}-vacc-{val_acc:.3f}.hdf5'
         new_weights_file = os.path.join(weights_dir, new_weights_file)
         model_checkpoint = ModelCheckpoint(
             filepath=new_weights_file,
