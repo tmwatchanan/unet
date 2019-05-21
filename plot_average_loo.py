@@ -13,6 +13,15 @@ def cli():
 
 
 def moving_average(x, N):
+    """calculate moving average to smooth the data
+    
+    Arguments:
+        x {array of numbers} -- contains data points to be passed through moving average
+        N {integer} -- the number of points taking into account
+    
+    Returns:
+        array of numbers -- the smoothed data array
+    """
     return np.convolve(x, np.ones((N,)) / N)[(N - 1) :]
 
 
@@ -38,9 +47,7 @@ def draw_graph(epoch_list, x, y, x_label, y_label, title, legend, is_moving_aver
 def plot(is_moving_average, is_show_plots):
     LOO = 16
     #  experiment_name_template = "eye_v3-baseline_v12_multiclass-softmax-cce-lw_1_0.01-loo_{0}-lr_1e_2-bn"
-    experiment_name_template = (
-        "eye_v3-baseline_v14_multiclass-softmax-cce-lw_1_0.01-hsv-canny_3-loo_{0}-lr_1e_2-bn"
-    )
+    experiment_name_template = "eye_v3-baseline_v14_multiclass-softmax-cce-lw_1_0.01-hsv-canny_3-loo_{0}-lr_1e_2-bn"
 
     graphs_dir = os.path.join("data", "comparison")
     csv_dir = os.path.join(graphs_dir, "csv")
@@ -50,16 +57,23 @@ def plot(is_moving_average, is_show_plots):
     history_list = []
     max_train_list = []
     max_val_list = []
+
+    best_of_all = 0
+
     for l in range(LOO):
+        # define variables and constants
         experiment_name = experiment_name_template.format(l + 1)
         moving_average_string = "-moving_average" if is_moving_average else ""
         output1_acc_filename = (
             f"{experiment_name}{moving_average_string}-output1_acc.png"
         )
+        # define paths
         output1_acc_file = os.path.join(graphs_dir, output1_acc_filename)
         dataset_path = os.path.join("data", experiment_name)
         training_log_file = os.path.join(dataset_path, "training.csv")
+        # read data from csv file
         history_data = pd.read_csv(training_log_file)
+        # plot a graph of each fold
         graph_title = f"{experiment_name}\nOutput 1 Model Accuracy"
         graph_title += " (moving average)" if is_moving_average else ""
         fig_loo = draw_graph(
@@ -72,28 +86,35 @@ def plot(is_moving_average, is_show_plots):
             ["Train Accuracy", "Validation Accuracy"],
             is_moving_average,
         )
+        # calculate statistics figures
         max_train = calculate_max(history_data["output1_acc"])
         max_val = calculate_max(history_data["val_output1_acc"])
         max_train_list.append(max_train)
         max_val_list.append(max_val)
         stats_text = f"MAX train = {max_train}\nMAX validation = {max_val}"
+        # overlay statistics values on the graph figure
         anchored_text = AnchoredText(stats_text, loc=3)  # 3=lower left
         ax = fig_loo.gca()
         ax.add_artist(anchored_text)
+        # store the figure on disk
         fig_loo.savefig(output1_acc_file, bbox_inches="tight")
+        # store history data to be used to calculate the average values
         history_list.append(history_data)
     epoch_list = [a["epoch"] for a in history_list]
     min_epochs = min(map(len, epoch_list))
     epoch_list = range(min_epochs)
 
+    # calculate the average of accuracies of output1 layer on training set
     output1_acc_list = [a["output1_acc"] for a in history_list]
     output1_acc_array = np.transpose(np.array(output1_acc_list))
     avg_output1_acc_list = [np.mean(a) for a in output1_acc_array]
 
+    # calculate the average of accuracies of output1 layer on validation set
     output1_val_acc_list = [a["val_output1_acc"] for a in history_list]
     output1_val_acc_array = np.transpose(np.array(output1_val_acc_list))
     avg_output1_val_acc_list = [np.mean(a) for a in output1_val_acc_array]
 
+    # plot graph of the average of all folds
     average_name = f"avg_1_{LOO}"
     experiment_name = experiment_name_template.format(average_name)
     output1_avg_acc_filename = f"{experiment_name}{moving_average_string}.png"
@@ -119,6 +140,7 @@ def plot(is_moving_average, is_show_plots):
     anchored_text = AnchoredText(stats_text, loc=3)  # 3=lower left
     ax = fig_avg.gca()
     ax.add_artist(anchored_text)
+    # store figure on disk
     fig_avg.savefig(output1_avg_acc_file, bbox_inches="tight")
 
     # save train/val accuracy lists to csv file
