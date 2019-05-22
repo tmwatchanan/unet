@@ -56,11 +56,10 @@ def get_color_convertion_function(color_model):
 
 
 class PredictOutput(Callback):
-    def __init__(self, test_set_dir, target_size, color_model, weights_dir, target_size,
+    def __init__(self, test_set_dir, color_model, weights_dir, target_size,
                  num_classes, predicted_set_dir, period, save_each_layer, canny_sigma_list):
         #  self.out_log = []
         self.test_set_dir = test_set_dir
-        self.target_size = target_size
         self.color_model = color_model
         self.weights_dir = weights_dir
         self.target_size = target_size
@@ -337,7 +336,6 @@ def train(ctx):
             period=MODEL_PERIOD)
         predict_output = PredictOutput(
             test_set_dir,
-            TARGET_SIZE,
             COLOR_MODEL,
             weights_dir,
             TARGET_SIZE,
