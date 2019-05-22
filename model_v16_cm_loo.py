@@ -520,9 +520,9 @@ def preprocess_image_input(img, color_model, canny_sigma_list):
     for idx, sigma in enumerate(canny_sigma_list):
         processed_img = add_canny_filter(img, color_model, processed_img, sigma) # very first canny
 
-    # extract only the last `c` layers as this model we want only canny layers
-    c = len(canny_sigma_list)
-    processed_img = processed_img[:, :, -c:]
+    # extract only the last `last_layers` layers as this model we want only canny layers
+    last_layers = len(canny_sigma_list)
+    processed_img = processed_img[:, :, -last_layers:]
 
     # normalize the values of image to be in range [0, 1]
     # if color_model == 'hsv':
@@ -541,7 +541,7 @@ def preprocess_mask_input(mask):
     return mask, mask_iris
 
 
-def preprocess_images_in_batch(im, img_color_model, canny_sigma_list):
+def preprocess_images_in_batch(img, img_color_model, canny_sigma_list):
     processed_img_list = []
     for im in img:
         processed_im = preprocess_image_input(im, img_color_model, canny_sigma_list)
