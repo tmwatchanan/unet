@@ -81,7 +81,8 @@ class PredictOutput(Callback):
                 file_names=test_files,
                 weights_name=last_weights_file,
                 flag_multi_class=True,
-                num_class=self.num_classes)
+                num_class=self.num_classes,
+                each_layer=False)
         #  self.out_log.append()
 
 
@@ -164,7 +165,7 @@ def train(ctx):
         cprint("`train`", color='green', end='')
         cprint(" function")
         DATASET_NAME = 'eye_v3'
-        COLOR_MODEL = 'ycbcr'  # rgb, hsv, ycbcr, gray
+        COLOR_MODEL = 'hsv'  # rgb, hsv, ycbcr, gray
         MODEL_NAME = 'baseline_v12_multiclass'
         MODEL_INFO = f"softmax-cce-lw_1_0.01-{COLOR_MODEL}-loo_{loo}"
         BATCH_NORMALIZATION = True
@@ -579,7 +580,8 @@ def save_result(save_path,
                 file_names,
                 weights_name,
                 flag_multi_class=False,
-                num_class=2):
+                num_class=2,
+                each_layer=False):
     for ol in range(len(npyfile)):
         layer_output = npyfile[ol]
         for i, item in enumerate(layer_output):
@@ -597,21 +599,22 @@ def save_result(save_path,
                             save_path,
                             f"{file_name}-{weights_name}-{ol+1}-merged.png"),
                         visualized_img)
-                    skimage.io.imsave(
-                        os.path.join(
-                            save_path,
-                            f"{file_name}-{weights_name}-{ol+1}-0.png"),
-                        item[:, :, 0])
-                    skimage.io.imsave(
-                        os.path.join(
-                            save_path,
-                            f"{file_name}-{weights_name}-{ol+1}-1.png"),
-                        item[:, :, 1])
-                    skimage.io.imsave(
-                        os.path.join(
-                            save_path,
-                            f"{file_name}-{weights_name}-{ol+1}-2.png"),
-                        item[:, :, 2])
+                    if each_layer:
+                        skimage.io.imsave(
+                            os.path.join(
+                                save_path,
+                                f"{file_name}-{weights_name}-{ol+1}-0.png"),
+                            item[:, :, 0])
+                        skimage.io.imsave(
+                            os.path.join(
+                                save_path,
+                                f"{file_name}-{weights_name}-{ol+1}-1.png"),
+                            item[:, :, 1])
+                        skimage.io.imsave(
+                            os.path.join(
+                                save_path,
+                                f"{file_name}-{weights_name}-{ol+1}-2.png"),
+                            item[:, :, 2])
             elif ol == 1:
                 output_shape = (256, 256)
                 item = np.reshape(item, output_shape)
@@ -795,7 +798,8 @@ def test(experiment_name, weight, test_dir_name, batch_normalization):
         file_names=test_files,
         weights_name=weight,
         flag_multi_class=True,
-        num_class=NUM_CLASSES)
+        num_class=NUM_CLASSES,
+        each_layer=False)
     cprint(
         f"> `test` command was successfully run, the predicted result will be in ",
         color='green',
