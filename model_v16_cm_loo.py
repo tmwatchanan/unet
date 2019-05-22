@@ -1,39 +1,42 @@
-import click
-import warnings
-import datetime
-import numpy as np
-import os
-import csv
-import cv2
-import six
-import time
-import io
 import copy
+import csv
+import datetime
+import io
+import os
+import time
+import warnings
+from collections import Iterable, OrderedDict
 from itertools import tee
-from termcolor import colored, cprint
-from utils import add_canny_filter, max_rgb_filter
-import skimage
+
+import click
+import cv2
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
+import six
+import skimage
 import tensorflow as tf
-from keras.preprocessing.image import ImageDataGenerator
-from keras.callbacks import Callback, ModelCheckpoint, CSVLogger, LambdaCallback
-from keras.models import Model
-from keras.layers import Input, Conv2D, Reshape, Permute, Activation, Flatten, MaxPooling2D, Concatenate, UpSampling2D, Dense, Lambda, ThresholdedReLU, BatchNormalization
-from keras.optimizers import Adam
 from keras import backend as K
+from keras.callbacks import (Callback, CSVLogger, LambdaCallback,
+                             ModelCheckpoint)
+from keras.layers import (Activation, BatchNormalization, Concatenate, Conv2D,
+                          Dense, Flatten, Input, Lambda, MaxPooling2D, Permute,
+                          Reshape, ThresholdedReLU, UpSampling2D)
+from keras.models import Model
+from keras.optimizers import Adam
+from keras.preprocessing.image import ImageDataGenerator
 from keras.utils import plot_model
 from tensorflow.python.keras.callbacks import TensorBoard
-import tensorflow as tf
-from collections import OrderedDict
-from collections import Iterable
+from termcolor import colored, cprint
 
-Iris = [0, 255, 0]
-Sclera = [255, 0, 0]
-Background = [255, 255, 255]
-Unlabelled = [0, 0, 0]
+from utils import add_canny_filter, max_rgb_filter
 
-COLOR_DICT = np.array([Background, Sclera, Iris, Unlabelled])
+IRIS = [0, 255, 0]
+SCLERA = [255, 0, 0]
+BACKGROUND = [255, 255, 255]
+UNLABELLED = [0, 0, 0]
+
+COLOR_DICT = np.array([BACKGROUND, SCLERA, IRIS, UNLABELLED])
 
 
 @click.group()
@@ -53,16 +56,18 @@ def get_color_convertion_function(color_model):
 
 
 class PredictOutput(Callback):
-    def __init__(self, test_set_dir, target_size, color_model, weights_dir,
-                 num_classes, predicted_set_dir, period, canny_sigma_list):
+    def __init__(self, test_set_dir, target_size, color_model, weights_dir, target_size,
+                 num_classes, predicted_set_dir, period, save_each_layer, canny_sigma_list):
         #  self.out_log = []
         self.test_set_dir = test_set_dir
         self.target_size = target_size
         self.color_model = color_model
         self.weights_dir = weights_dir
+        self.target_size = target_size
         self.num_classes = num_classes
         self.predicted_set_dir = predicted_set_dir
         self.period = period
+        self.save_each_layer = save_each_layer
         self.canny_sigma_list = canny_sigma_list
 
     def on_epoch_end(self, epoch, logs=None):
@@ -82,7 +87,9 @@ class PredictOutput(Callback):
                 results,
                 file_names=test_files,
                 weights_name=last_weights_file,
-                num_class=self.num_classes)
+                target_size=self.target_size,
+                num_class=self.num_classes,
+                save_each_layer=self.save_each_layer)
         #  self.out_log.append()
 
 
@@ -184,6 +191,7 @@ def train(ctx):
         INPUT_SIZE = (256, 256, 3)
         TARGET_SIZE = (256, 256)
         NUM_CLASSES = 3
+        SAVE_EACH_LAYER = False
 
         if BATCH_SIZE > 10:
             answer = input(
@@ -244,6 +252,7 @@ def train(ctx):
                 f.write(f"NUM_CLASSES={NUM_CLASSES}\n")
                 f.write(f"COLOR_MODEL={COLOR_MODEL}\n")
                 f.write(f"CANNY_SIGMA_LIST=[{str(CANNY_SIGMA_LIST)}]\n")
+                f.write(f"SAVE_EACH_LAYER={SAVE_EACH_LAYER}\n")
                 f.write(f"=======================\n")
 
         save_experiment_settings_file()
@@ -331,9 +340,11 @@ def train(ctx):
             TARGET_SIZE,
             COLOR_MODEL,
             weights_dir,
+            TARGET_SIZE,
             NUM_CLASSES,
             predicted_set_dir,
             period=MODEL_PERIOD,
+            save_each_layer=SAVE_EACH_LAYER,
             canny_sigma_list=CANNY_SIGMA_LIST)
         csv_logger = CSVLogger(training_log_file, append=True)
         tensorboard = TensorBoard(
@@ -363,7 +374,7 @@ def train(ctx):
         #  print(history.history.keys())  # show dict of metrics in history
         #  save_metrics(loss_acc_file=loss_acc_file, history=history, epoch=i)
 
-    plot([EXPERIMENT_NAME])
+        plot([EXPERIMENT_NAME])
     #  ctx.invoke(plot, experiment_name=EXPERIMENT_NAME)
 
 
@@ -488,19 +499,38 @@ def create_model(pretrained_weights=None,
     return model
 
 
-def add_image_features(img, canny_sigma_list):
-    # image shape = (x, y, channels)
-    img_added_canny = copy.deepcopy(img)
+def preprocess_image_input(img, color_model, canny_sigma_list):
+    """preprocess input using image
+       e.g., add feature layers, such as canny and gradient
+
+       Normalization process must be done here after using image to calculate other features
+    
+    Arguments:
+        img {3D array} -- size = (x, y, channels)
+        color_model {string} -- color model of image (e.g., rgb and hsv)
+        canny_sigma_list {list} -- list of sigma values
+    
+    Returns:
+        3D array -- preprocessed image
+    """
+    # create a duplicate object of image
+    processed_img = copy.deepcopy(img)
+
+    # add canny feature layer for multiple times based on the values in list
     for idx, sigma in enumerate(canny_sigma_list):
-        img_added_canny = add_canny_filter(img, -1, img_added_canny, sigma) # very first canny
-    img_only_canny = img_added_canny[:, :, -len(canny_sigma_list):] # extract only the last layer = canny
-    return img_only_canny
+        processed_img = add_canny_filter(img, color_model, processed_img, sigma) # very first canny
 
+    # extract only the last `c` layers as this model we want only canny layers
+    c = len(canny_sigma_list)
+    processed_img = processed_img[:, :, -c:]
 
-def preprocess_image_input(img, img_color_model, canny_sigma_list):
-    # image shape = (x, y, channels)
-    # img = img / 255
-    processed_img = add_image_features(img, canny_sigma_list)
+    # normalize the values of image to be in range [0, 1]
+    # if color_model == 'hsv':
+    #     # normalize V layer
+    #     img[:, :, 3] /= 255.0
+    # if color_model == 'rgb':
+    #     # normalize RGB layers
+    #     img /= 255.0
     return processed_img
 
 
@@ -511,17 +541,13 @@ def preprocess_mask_input(mask):
     return mask, mask_iris
 
 
-def preprocess_image_mask_pair(img, mask, img_color_model, canny_sigma_list):
-    # img's shape is (BATCH_SIZE, 256, 256)
-
+def preprocess_images_in_batch(im, img_color_model, canny_sigma_list):
     processed_img_list = []
     for im in img:
         processed_im = preprocess_image_input(im, img_color_model, canny_sigma_list)
         processed_img_list.append(processed_im)
     processed_img_array = np.array(processed_img_list)
-
-    mask, mask_iris = preprocess_mask_input(mask)
-    return [processed_img_array], [mask, mask_iris]
+    return processed_img_array
 
 
 def get_train_data(batch_size,
@@ -536,11 +562,6 @@ def get_train_data(batch_size,
                     save_to_dir=None,
                     target_size=(256, 256),
                     seed=1):
-    '''
-    can generate image and mask at the same time
-    use the same seed for image_datagen and mask_datagen to ensure the transformation for image and mask is the same
-    if you want to visualize the results of generator, set save_to_dir = "your path"
-    '''
     image_aug_dict = copy.deepcopy(aug_dict)
     image_aug_dict['preprocessing_function'] = get_color_convertion_function(
         image_color)
@@ -571,12 +592,6 @@ def get_train_data(batch_size,
     image_mask_pair_flow = zip(image_flow, mask_flow)
     return image_mask_pair_flow
 
-def train_generator(image_mask_pair_flow, image_color_model, canny_sigma_list):
-    for (img, mask) in image_mask_pair_flow:
-        img, mask = preprocess_image_mask_pair(img, mask, image_color_model, canny_sigma_list)
-        yield (img, mask)
-
-
 def get_test_data(test_path, target_size=(256, 256), color_model='rgb'):
     color_convertion_function = get_color_convertion_function(color_model)
     test_datagen = ImageDataGenerator(
@@ -591,14 +606,15 @@ def get_test_data(test_path, target_size=(256, 256), color_model='rgb'):
         shuffle=False)
     return test_flow
 
+def train_generator(image_mask_pair_flow, image_color_model, canny_sigma_list):
+    for (img, mask) in image_mask_pair_flow:
+        processed_img_array = preprocess_images_in_batch(img, img_color_model, canny_sigma_list)
+        mask, mask_iris = preprocess_mask_input(mask)
+        yield ([processed_img_array], [mask, mask_iris])
 
 def test_generator(test_flow, img_color_model, canny_sigma_list):
     for img in test_flow:
-        processed_img_list = []
-        for im in img:
-            processed_im = preprocess_image_input(im, img_color_model, canny_sigma_list)
-            processed_img_list.append(processed_im)
-        processed_img_array = np.array(processed_img_list)
+        processed_img_array = preprocess_images_in_batch(img, img_color_model, canny_sigma_list)
         yield [processed_img_array]
 
 
@@ -606,14 +622,16 @@ def save_result(save_path,
                 npyfile,
                 file_names,
                 weights_name,
-                num_class=2):
+                target_size=(256, 256),
+                num_class=3,
+                save_each_layer=False):
     for ol in range(len(npyfile)):
         layer_output = npyfile[ol]
         for i, item in enumerate(layer_output):
             file_name = os.path.split(file_names[i])[1]
             #  file_name=file_names[i]
             if ol == 0:
-                output_shape = (256, 256, num_class)
+                output_shape = (target_size[0], target_size[1], num_class)
                 item = np.reshape(item, output_shape)
                 visualized_img = max_rgb_filter(item)
                 visualized_img[visualized_img > 0] = 1
@@ -624,24 +642,24 @@ def save_result(save_path,
                             save_path,
                             f"{file_name}-{weights_name}-{ol+1}-merged.png"),
                         visualized_img)
-                    skimage.io.imsave(
-                        os.path.join(
-                            save_path,
-                            f"{file_name}-{weights_name}-{ol+1}-0.png"),
-                        item[:, :, 0])
-                    skimage.io.imsave(
-                        os.path.join(
-                            save_path,
-                            f"{file_name}-{weights_name}-{ol+1}-1.png"),
-                        item[:, :, 1])
-                    skimage.io.imsave(
-                        os.path.join(
-                            save_path,
-                            f"{file_name}-{weights_name}-{ol+1}-2.png"),
-                        item[:, :, 2])
+                    if save_each_layer:
+                        skimage.io.imsave(
+                            os.path.join(
+                                save_path,
+                                f"{file_name}-{weights_name}-{ol+1}-0.png"),
+                            item[:, :, 0])
+                        skimage.io.imsave(
+                            os.path.join(
+                                save_path,
+                                f"{file_name}-{weights_name}-{ol+1}-1.png"),
+                            item[:, :, 1])
+                        skimage.io.imsave(
+                            os.path.join(
+                                save_path,
+                                f"{file_name}-{weights_name}-{ol+1}-2.png"),
+                            item[:, :, 2])
             elif ol == 1:
-                output_shape = (256, 256)
-                item = np.reshape(item, output_shape)
+                item = np.reshape(item, target_size)
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
                     skimage.io.imsave(
@@ -758,6 +776,7 @@ def test(experiment_name, weight, test_dir_name, batch_normalization, canny_sigm
     TARGET_SIZE = (256, 256)
     NUM_CLASSES = 3
     COLOR_MODEL = 'hsv'  # rgb, hsv, ycbcr, gray
+    SAVE_EACH_LAYER = False
 
     cprint(f"The weight at epoch#", color='green', end='')
     cprint(f"{weight}", color='green', attrs=['bold'], end='')
@@ -796,6 +815,7 @@ def test(experiment_name, weight, test_dir_name, batch_normalization, canny_sigm
             f.write(f"TARGET_SIZE={TARGET_SIZE}\n")
             f.write(f"NUM_CLASSES={NUM_CLASSES}\n")
             f.write(f"COLOR_MODEL={COLOR_MODEL}\n")
+            f.write(f"SAVE_EACH_LAYER={SAVE_EACH_LAYER}\n")
             f.write(f"=======================\n")
 
     save_prediction_settings_file()
@@ -824,7 +844,9 @@ def test(experiment_name, weight, test_dir_name, batch_normalization, canny_sigm
         results,
         file_names=test_files,
         weights_name=weight,
-        num_class=NUM_CLASSES)
+        target_size=TARGET_SIZE,
+        num_class=NUM_CLASSES,
+        save_each_layer=SAVE_EACH_LAYER)
     cprint(
         f"> `test` command was successfully run, the predicted result will be in ",
         color='green',
