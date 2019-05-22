@@ -183,7 +183,7 @@ def train(ctx):
         MODEL_PERIOD = 100
         BATCH_SIZE = 6  # 10
         STEPS_PER_EPOCH = 1  # None
-        INPUT_SIZE = (256, 256, 3)
+        INPUT_SIZE = (256, 256, 2)
         TARGET_SIZE = (256, 256)
         NUM_CLASSES = 3
         SAVE_EACH_LAYER = False
@@ -379,7 +379,7 @@ def diff_iris_area(y_true, y_pred):
 
 def create_model(pretrained_weights=None,
                  num_classes=2,
-                 input_size=(256, 256, 3),
+                 input_size=(256, 256, 2),
                  learning_rate=1e-4,
                  batch_normalization=False):
     input1_size = input_size
@@ -760,7 +760,7 @@ def test(experiment_name, weight, test_dir_name, batch_normalization):
     #  weight = "98800"
     #  test_dir_name = 'blind_conj'
     BATCH_SIZE = 6  # 10
-    INPUT_SIZE = (256, 256, 3)
+    INPUT_SIZE = (256, 256, 2)
     TARGET_SIZE = (256, 256)
     NUM_CLASSES = 3
     COLOR_MODEL = 'hsv'  # rgb, hsv, ycbcr, gray
