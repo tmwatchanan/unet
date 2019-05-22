@@ -598,13 +598,13 @@ def get_test_data(test_path, target_size=(256, 256), color_model='rgb'):
 
 def train_generator(image_mask_pair_flow, image_color_model):
     for (img, mask) in image_mask_pair_flow:
-        processed_img_array = preprocess_images_in_batch(img, img_color_model)
+        processed_img_array = preprocess_images_in_batch(img, image_color_model)
         mask, mask_iris = preprocess_mask_input(mask)
         yield ([processed_img_array], [mask, mask_iris])
 
-def test_generator(test_flow, img_color_model):
+def test_generator(test_flow, image_color_model):
     for img in test_flow:
-        processed_img_array = preprocess_images_in_batch(img, img_color_model)
+        processed_img_array = preprocess_images_in_batch(img, image_color_model)
         yield [processed_img_array]
 
 
