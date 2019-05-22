@@ -1,0 +1,9 @@
+
+Todo:
+  v13:
+    ☐ @high Fix `add_sobel_filters` function calling
+    ☐ @critical Make sure that the value of every single pixel is in the range of [0, 1]
+  v14:
+    ☐ @high Fix `add_canny_filter` function calling
+  v15:
+    ☐ @high Fix `add_sobel_filters` function calling
