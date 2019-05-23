@@ -495,8 +495,8 @@ def adjust_data(img, mask, flag_multi_class, num_class, target_size, img_color_m
         if img_color_model in ('rgb', 'ycbcr'):
             img = img / 255
         for im in img:
-            im_added_sobel = add_canny_filter(im, -1, canny_sigma)
-            processed_img.append(im_added_sobel)
+            im_added_canny = add_canny_filter(im, -1, canny_sigma)
+            processed_img.append(im_added_canny)
         processed_img = np.array(processed_img)
 
         mask = mask / 255
