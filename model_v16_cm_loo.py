@@ -10,6 +10,8 @@ from itertools import tee
 
 import click
 import cv2
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -372,8 +374,8 @@ def train(ctx):
         #  print(history.history.keys())  # show dict of metrics in history
         #  save_metrics(loss_acc_file=loss_acc_file, history=history, epoch=i)
 
-        plot([EXPERIMENT_NAME])
-    #  ctx.invoke(plot, experiment_name=EXPERIMENT_NAME)
+        # plot([EXPERIMENT_NAME])
+        ctx.invoke(plot, experiment_name=EXPERIMENT_NAME)
 
 
 def diff_iris_area(y_true, y_pred):
