@@ -1,6 +1,7 @@
 import os
-import click
 import csv
+import click
+import copy
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -46,8 +47,10 @@ def draw_graph(epoch_list, x, y, x_label, y_label, title, legend, is_moving_aver
 @click.option("--show", "is_show_plots", is_flag=True)
 def plot(is_moving_average, is_show_plots):
     LOO = 16
-    #  experiment_name_template = "eye_v3-baseline_v12_multiclass-softmax-cce-lw_1_0.01-loo_{0}-lr_1e_2-bn"
-    experiment_name_template = "eye_v3-baseline_v14_multiclass-softmax-cce-lw_1_0.01-hsv-canny_3-loo_{0}-lr_1e_2-bn"
+    # experiment_name_template = "eye_v3-baseline_v12_multiclass-softmax-cce-lw_1_0.01-rgb2hsv-loo_{0}-lr_1e_2-bn"
+    experiment_name_template = (
+        "eye_v3-baseline_v15_multiclass-softmax-cce-lw_1_0.01-loo_{0}-lr_1e_2-bn"
+    )
 
     graphs_dir = os.path.join("data", "comparison")
     csv_dir = os.path.join(graphs_dir, "csv")
@@ -58,7 +61,7 @@ def plot(is_moving_average, is_show_plots):
     max_train_list = []
     max_val_list = []
 
-    best_of_all = 0
+    best_of_all = {"accuracy": 0.0, "epoch": 0, "fold": 0}
 
     for l in range(LOO):
         # define variables and constants
@@ -92,6 +95,26 @@ def plot(is_moving_average, is_show_plots):
         max_train_list.append(max_train)
         max_val_list.append(max_val)
         stats_text = f"MAX train = {max_train}\nMAX validation = {max_val}"
+
+        # find the max accuracy on validation set of this fold
+
+        # replace the others apart from every 100 epochs with 0
+        # as we don't have their weights yet
+        l_history_data = copy.deepcopy(history_data)
+        l_history_data["val_output1_acc"] = [
+            acc if i % 100 == 0 else 0.0
+            for i, acc in enumerate(l_history_data["val_output1_acc"])
+        ]
+
+        # find the max accuracy in this fold with argmax
+        arg_max_val_acc = np.argmax(np.array(l_history_data["val_output1_acc"]))
+        max_val_acc = l_history_data["val_output1_acc"][arg_max_val_acc]
+        max_val_epoch = l_history_data["epoch"][arg_max_val_acc]
+        if max_val_acc > best_of_all["accuracy"]:
+            best_of_all["accuracy"] = max_val_acc
+            best_of_all["epoch"] = max_val_epoch
+            best_of_all["fold"] = l + 1  # plug 1 as it starts from 0
+
         # overlay statistics values on the graph figure
         anchored_text = AnchoredText(stats_text, loc=3)  # 3=lower left
         ax = fig_loo.gca()
@@ -158,6 +181,10 @@ def plot(is_moving_average, is_show_plots):
 
     print(f"MAX train = {max_train}")
     print(f"MAX validation = {max_val}")
+
+    print(
+        f"Best of all: accuracy={best_of_all['accuracy']} in fold={best_of_all['fold']} at epoch={best_of_all['epoch']}"
+    )
 
     # immediately show plotted graphs
     if is_show_plots:
