@@ -33,13 +33,6 @@ from termcolor import colored, cprint
 
 from utils import add_canny_filter, max_rgb_filter
 
-IRIS = [0, 255, 0]
-SCLERA = [255, 0, 0]
-BACKGROUND = [255, 255, 255]
-UNLABELLED = [0, 0, 0]
-
-COLOR_DICT = np.array([BACKGROUND, SCLERA, IRIS, UNLABELLED])
-
 
 @click.group()
 def cli():
@@ -59,7 +52,7 @@ def get_color_convertion_function(color_model):
 
 class PredictOutput(Callback):
     def __init__(self, test_set_dir, color_model, weights_dir, target_size,
-                 num_classes, predicted_set_dir, period, save_each_layer, canny_sigma_list):
+                 num_classes, predicted_set_dir, period, save_each_layer, fit_verbose, canny_sigma_list):
         #  self.out_log = []
         self.test_set_dir = test_set_dir
         self.color_model = color_model
@@ -69,6 +62,7 @@ class PredictOutput(Callback):
         self.predicted_set_dir = predicted_set_dir
         self.period = period
         self.save_each_layer = save_each_layer
+        self.fit_verbose = fit_verbose
         self.canny_sigma_list = canny_sigma_list
 
     def on_epoch_end(self, epoch, logs=None):
@@ -81,7 +75,7 @@ class PredictOutput(Callback):
             num_test_files = len(test_files)
 
             results = self.model.predict_generator(
-                test_gen, steps=num_test_files, verbose=1)
+                test_gen, steps=num_test_files, verbose=self.fit_verbose)
             last_weights_file = f"{predict_epoch:08d}"
             save_result(
                 self.predicted_set_dir,
@@ -108,6 +102,7 @@ class TimeHistory(Callback):
         else:
             self.file_flags = ''
             self._open_args = {'newline': '\n'}
+        super(TimeHistory, self).__init__()
 
     def on_train_begin(self, logs={}):
         self.times = []
@@ -193,6 +188,7 @@ def train(ctx):
         TARGET_SIZE = (256, 256)
         NUM_CLASSES = 3
         SAVE_EACH_LAYER = False
+        FIT_VERBOSE = 2 # 0 = silent, 1 = progress bar, 2 = one line per epoch
 
         if BATCH_SIZE > 10:
             answer = input(
@@ -252,7 +248,7 @@ def train(ctx):
                 f.write(f"TARGET_SIZE={TARGET_SIZE}\n")
                 f.write(f"NUM_CLASSES={NUM_CLASSES}\n")
                 f.write(f"COLOR_MODEL={COLOR_MODEL}\n")
-                f.write(f"CANNY_SIGMA_LIST=[{str(CANNY_SIGMA_LIST)}]\n")
+                f.write(f"CANNY_SIGMA_LIST={str(CANNY_SIGMA_LIST)}\n")
                 f.write(f"SAVE_EACH_LAYER={SAVE_EACH_LAYER}\n")
                 f.write(f"=======================\n")
 
@@ -341,6 +337,7 @@ def train(ctx):
             predicted_set_dir,
             period=MODEL_PERIOD,
             save_each_layer=SAVE_EACH_LAYER,
+            fit_verbose=FIT_VERBOSE,
             canny_sigma_list=CANNY_SIGMA_LIST)
         csv_logger = CSVLogger(training_log_file, append=True)
         tensorboard = TensorBoard(
@@ -366,7 +363,8 @@ def train(ctx):
             validation_data=validation_gen,
             validation_steps=num_validation,
             workers=0,
-            use_multiprocessing=True)
+            use_multiprocessing=True,
+            verbose=FIT_VERBOSE)
         #  print(history.history.keys())  # show dict of metrics in history
 
         plot([EXPERIMENT_NAME])
@@ -737,6 +735,7 @@ def test(experiment_name, weight, test_dir_name, batch_normalization, canny_sigm
     NUM_CLASSES = 3
     COLOR_MODEL = 'hsv'  # rgb, hsv, ycbcr, gray
     SAVE_EACH_LAYER = False
+    PREDICT_VERBOSE = 1 # 0 = silent, 1
 
     cprint(f"The weight at epoch#", color='green', end='')
     cprint(f"{weight}", color='green', attrs=['bold'], end='')
@@ -798,7 +797,7 @@ def test(experiment_name, weight, test_dir_name, batch_normalization, canny_sigm
     num_test_files = len(test_files)
 
     results = model.predict_generator(
-        test_gen, steps=num_test_files, verbose=1)
+        test_gen, steps=num_test_files, verbose=PREDICT_VERBOSE)
     save_result(
         predicted_set_dir,
         results,
