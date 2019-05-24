@@ -367,8 +367,8 @@ def train(ctx):
             verbose=FIT_VERBOSE)
         #  print(history.history.keys())  # show dict of metrics in history
 
-        plot([EXPERIMENT_NAME])
-    #  ctx.invoke(plot, experiment_name=EXPERIMENT_NAME)
+        # plot([EXPERIMENT_NAME])
+        ctx.invoke(plot, experiment_name=EXPERIMENT_NAME)
 
 
 def diff_iris_area(y_true, y_pred):
