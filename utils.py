@@ -32,11 +32,25 @@ def max_rgb_filter(image):
 
 
 def color_to_gray(img, color_model):
-    if color_model == "hsv":
+    if color_model.lower() == "hsv":
         # extract only the V layer
         img_gray = img[:, :, 2]
+    elif color_model.lower() in (
+        "rgb",
+        "cie",
+        "xyz",
+        "yuv",
+        "yiq",
+        "ypbpr",
+        "ycbcr",
+        "ydbdr",
+    ):
+        # convert image into RGB first
+        img_rgb = color.convert_colorspace(img, color_model, "RGB")
+        # then convert RGB to gray
+        img_gray = color.rgb2gray(img_rgb)
     else:
-        img_gray = color.rgb2gray(img)
+        raise Exception(f"color_model {color_model} is invalid.")
     return img_gray
 
 
