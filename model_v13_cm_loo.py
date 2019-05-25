@@ -703,7 +703,6 @@ def plot(experiment_name):
 
     # immediately show plotted graphs
     #  plt.show()
-    return
 
 
 @cli.command()
