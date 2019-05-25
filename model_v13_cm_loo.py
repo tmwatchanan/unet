@@ -1,39 +1,37 @@
-import click
-import warnings
-import datetime
-import numpy as np
-import os
-import csv
-import cv2
-import six
-import time
-import io
 import copy
+import csv
+import datetime
+import io
+import os
+import time
+import warnings
+from collections import Iterable, OrderedDict
 from itertools import tee
-from termcolor import colored, cprint
-from utils import add_sobel_filters, max_rgb_filter
-import skimage
+
+import click
+import cv2
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
+import six
+import skimage
 import tensorflow as tf
-from keras.preprocessing.image import ImageDataGenerator
-from keras.callbacks import Callback, ModelCheckpoint, CSVLogger, LambdaCallback
-from keras.models import Model
-from keras.layers import Input, Conv2D, Reshape, Permute, Activation, Flatten, MaxPooling2D, Concatenate, UpSampling2D, Dense, Lambda, ThresholdedReLU, BatchNormalization
-from keras.optimizers import Adam
 from keras import backend as K
+from keras.callbacks import (Callback, CSVLogger, LambdaCallback,
+                             ModelCheckpoint)
+from keras.layers import (Activation, BatchNormalization, Concatenate, Conv2D,
+                          Dense, Flatten, Input, Lambda, MaxPooling2D, Permute,
+                          Reshape, ThresholdedReLU, UpSampling2D)
+from keras.models import Model
+from keras.optimizers import Adam
+from keras.preprocessing.image import ImageDataGenerator
 from keras.utils import plot_model
 from tensorflow.python.keras.callbacks import TensorBoard
-import tensorflow as tf
-from collections import OrderedDict
-from collections import Iterable
+from termcolor import colored, cprint
 
-Iris = [0, 255, 0]
-Sclera = [255, 0, 0]
-Background = [255, 255, 255]
-Unlabelled = [0, 0, 0]
-
-COLOR_DICT = np.array([Background, Sclera, Iris, Unlabelled])
+from utils import add_sobel_filters, max_rgb_filter
 
 
 @click.group()
@@ -53,16 +51,18 @@ def get_color_convertion_function(color_model):
 
 
 class PredictOutput(Callback):
-    def __init__(self, test_set_dir, target_size, color_model, weights_dir,
-                 num_classes, predicted_set_dir, period):
+    def __init__(self, test_set_dir, color_model, weights_dir, target_size,
+                 num_classes, predicted_set_dir, period, save_each_layer, fit_verbose):
         #  self.out_log = []
         self.test_set_dir = test_set_dir
-        self.target_size = target_size
         self.color_model = color_model
         self.weights_dir = weights_dir
+        self.target_size = target_size
         self.num_classes = num_classes
         self.predicted_set_dir = predicted_set_dir
         self.period = period
+        self.save_each_layer = save_each_layer
+        self.fit_verbose = fit_verbose
 
     def on_epoch_end(self, epoch, logs=None):
         predict_epoch = epoch + 1
@@ -74,15 +74,16 @@ class PredictOutput(Callback):
             num_test_files = len(test_files)
 
             results = self.model.predict_generator(
-                test_gen, steps=num_test_files, verbose=1)
+                test_gen, steps=num_test_files, verbose=self.fit_verbose)
             last_weights_file = f"{predict_epoch:08d}"
             save_result(
                 self.predicted_set_dir,
                 results,
                 file_names=test_files,
                 weights_name=last_weights_file,
-                flag_multi_class=True,
-                num_class=self.num_classes)
+                target_size=self.target_size,
+                num_class=self.num_classes,
+                save_each_layer=self.save_each_layer)
         #  self.out_log.append()
 
 
@@ -100,6 +101,7 @@ class TimeHistory(Callback):
         else:
             self.file_flags = ''
             self._open_args = {'newline': '\n'}
+        super(TimeHistory, self).__init__()
 
     def on_train_begin(self, logs={}):
         self.times = []
@@ -166,7 +168,7 @@ def train(ctx):
         cprint(" function")
         DATASET_NAME = 'eye_v3'
         COLOR_MODEL = 'hsv'  # rgb, hsv, ycbcr, gray
-        MODEL_NAME = 'baseline_v13_multiclass'
+        MODEL_NAME = 'model_v13_multiclass'
         MODEL_INFO = f"softmax-cce-lw_1_0.01-{COLOR_MODEL}-loo_{loo}"
         BATCH_NORMALIZATION = True
         LEARNING_RATE = "1e_2"
@@ -178,9 +180,11 @@ def train(ctx):
         MODEL_PERIOD = 100
         BATCH_SIZE = 6  # 10
         STEPS_PER_EPOCH = 1  # None
-        INPUT_SIZE = (256, 256, 5)
+        INPUT_SIZE = (256, 256, 3 + 2) # color model + gradients (x and y)
         TARGET_SIZE = (256, 256)
         NUM_CLASSES = 3
+        SAVE_EACH_LAYER = False
+        FIT_VERBOSE = 2 # 0 = silent, 1 = progress bar, 2 = one line per epoch
 
         if BATCH_SIZE > 10:
             answer = input(
@@ -240,6 +244,7 @@ def train(ctx):
                 f.write(f"TARGET_SIZE={TARGET_SIZE}\n")
                 f.write(f"NUM_CLASSES={NUM_CLASSES}\n")
                 f.write(f"COLOR_MODEL={COLOR_MODEL}\n")
+                f.write(f"SAVE_EACH_LAYER={SAVE_EACH_LAYER}\n")
                 f.write(f"=======================\n")
 
         save_experiment_settings_file()
@@ -266,16 +271,12 @@ def train(ctx):
 
         model = create_model(
             pretrained_weights=trained_weights_file,
-            num_classes=NUM_CLASSES,
             input_size=INPUT_SIZE,
+            num_classes=NUM_CLASSES,
             learning_rate=learning_rate,
             batch_normalization=BATCH_NORMALIZATION)  # load pretrained model
-        if os.getenv('COLAB_TPU_ADDR'):
-            model = tf.contrib.tpu.keras_to_tpu_model(
-                model,
-                strategy=tf.contrib.tpu.TPUDistributionStrategy(
-                    tf.contrib.cluster_resolver.TPUClusterResolver(
-                        tpu='grpc://' + os.environ['COLAB_TPU_ADDR'])))
+        
+        # save model architecture figure
         plot_model(model, show_shapes=True, to_file=model_file)
 
         data_gen_args = dict(
@@ -286,28 +287,28 @@ def train(ctx):
             zoom_range=0.1,
             horizontal_flip=True,
             fill_mode='nearest')
-        train_gen = train_generator(
+        train_flow = get_train_data(
             BATCH_SIZE,
             training_set_dir,
             'images',
             'labels',
             data_gen_args,
-            save_to_dir=None,
             image_color=COLOR_MODEL,
             mask_color=COLOR_MODEL,
-            flag_multi_class=True,
-            num_class=NUM_CLASSES)
-        validation_gen = train_generator(
+            save_to_dir=None,
+            target_size=TARGET_SIZE)
+        train_gen = train_generator(train_flow, COLOR_MODEL)
+        validation_flow = get_train_data(
             BATCH_SIZE,
             validation_set_dir,
             'images',
             'labels',
             dict(),
-            save_to_dir=None,
             image_color=COLOR_MODEL,
             mask_color=COLOR_MODEL,
-            flag_multi_class=True,
-            num_class=NUM_CLASSES)
+            save_to_dir=None,
+            target_size=TARGET_SIZE)
+        validation_gen = train_generator(validation_flow, COLOR_MODEL)
 
         # train the model
         #  new_weights_name = '{epoch:08d}'
@@ -324,12 +325,14 @@ def train(ctx):
             period=MODEL_PERIOD)
         predict_output = PredictOutput(
             test_set_dir,
-            TARGET_SIZE,
             COLOR_MODEL,
             weights_dir,
+            TARGET_SIZE,
             NUM_CLASSES,
             predicted_set_dir,
-            period=MODEL_PERIOD)
+            period=MODEL_PERIOD,
+            save_each_layer=SAVE_EACH_LAYER,
+            fit_verbose=FIT_VERBOSE)
         csv_logger = CSVLogger(training_log_file, append=True)
         tensorboard = TensorBoard(
             log_dir=os.path.join(tensorboard_log_dir, str(time.time())),
@@ -354,12 +357,12 @@ def train(ctx):
             validation_data=validation_gen,
             validation_steps=num_validation,
             workers=0,
-            use_multiprocessing=True)
+            use_multiprocessing=True,
+            verbose=FIT_VERBOSE)
         #  print(history.history.keys())  # show dict of metrics in history
-        #  save_metrics(loss_acc_file=loss_acc_file, history=history, epoch=i)
 
-    plot([EXPERIMENT_NAME])
-    #  ctx.invoke(plot, experiment_name=EXPERIMENT_NAME)
+        # plot([EXPERIMENT_NAME])
+        ctx.invoke(plot, experiment_name=EXPERIMENT_NAME)
 
 
 def diff_iris_area(y_true, y_pred):
@@ -370,8 +373,8 @@ def diff_iris_area(y_true, y_pred):
 
 
 def create_model(pretrained_weights=None,
+                 input_size=(),
                  num_classes=2,
-                 input_size=(256, 256, 5),
                  learning_rate=1e-4,
                  batch_normalization=False):
     input1_size = input_size
@@ -483,24 +486,52 @@ def create_model(pretrained_weights=None,
     return model
 
 
-def adjust_data(img, mask, flag_multi_class, num_class, target_size, img_color_model):
-    # img's shape is (BATCH_SIZE, 256, 256)
+def preprocess_image_input(img, color_model):
+    """preprocess input using image
+       e.g., add feature layers, such as canny and gradient
 
-    processed_img = []
-    if (flag_multi_class):
-        if img_color_model in ('rgb', 'ycbcr'):
-            img = img / 255
-        for im in img:
-            im_added_sobel = add_sobel_filters(im, -1)
-            processed_img.append(im_added_sobel)
-        processed_img = np.array(processed_img)
+       Normalization process must be done here after using image to calculate other features
+    
+    Arguments:
+        img {3D array} -- size = (x, y, channels)
+        color_model {string} -- color model of image (e.g., rgb and hsv)
+    
+    Returns:
+        3D array -- preprocessed image
+    """
+    # create a duplicate object of image
+    processed_img = copy.deepcopy(img)
 
-        mask = mask / 255
-        mask_iris = mask[:, :, :, 0]
-    return [processed_img], [mask, mask_iris]
+    # add sobel gradient feature layers in x and y directions
+    processed_img = add_sobel_filters(img, color_model, processed_img)
+
+    # normalize the values of image to be in range [0, 1]
+    if color_model == 'hsv':
+        # normalize V layer
+        processed_img[:, :, 2] /= 255.0
+    if color_model == 'rgb':
+        # normalize RGB layers => 0:3 = 0,1,2
+        processed_img[:, :, 0:3] /= 255.0
+    return processed_img
 
 
-def train_generator(batch_size,
+def preprocess_mask_input(mask):
+    # mask shape = (BATCH_SIZE, x, y, channels)
+    mask = mask / 255
+    mask_iris = mask[:, :, :, 0]
+    return mask, mask_iris
+
+
+def preprocess_images_in_batch(img, img_color_model):
+    processed_img_list = []
+    for im in img:
+        processed_im = preprocess_image_input(im, img_color_model)
+        processed_img_list.append(processed_im)
+    processed_img_array = np.array(processed_img_list)
+    return processed_img_array
+
+
+def get_train_data(batch_size,
                     train_path,
                     image_folder,
                     mask_folder,
@@ -509,30 +540,17 @@ def train_generator(batch_size,
                     mask_color='rgb',
                     image_save_prefix="image",
                     mask_save_prefix="mask",
-                    flag_multi_class=False,
-                    num_class=2,
                     save_to_dir=None,
                     target_size=(256, 256),
                     seed=1):
-    '''
-    can generate image and mask at the same time
-    use the same seed for image_datagen and mask_datagen to ensure the transformation for image and mask is the same
-    if you want to visualize the results of generator, set save_to_dir = "your path"
-    '''
     image_aug_dict = copy.deepcopy(aug_dict)
     image_aug_dict['preprocessing_function'] = get_color_convertion_function(
         image_color)
     image_datagen = ImageDataGenerator(**image_aug_dict)
     mask_datagen = ImageDataGenerator(**aug_dict)
-    if image_color == 'gray':
-        image_color_mode = 'grayscale'
-    else:
-        image_color_mode = 'rgb'
-    if mask_color == 'gray':
-        mask_color_mode = 'grayscale'
-    else:
-        mask_color_mode = 'rgb'
-    image_generator = image_datagen.flow_from_directory(
+    image_color_mode = 'grayscale' if image_color == 'gray' else 'rgb';
+    mask_color_mode = 'grayscale' if mask_color == 'gray' else 'rgb';
+    image_flow = image_datagen.flow_from_directory(
         train_path,
         classes=[image_folder],
         class_mode=None,
@@ -542,7 +560,7 @@ def train_generator(batch_size,
         save_to_dir=save_to_dir,
         save_prefix=image_save_prefix,
         seed=seed)
-    mask_generator = mask_datagen.flow_from_directory(
+    mask_flow = mask_datagen.flow_from_directory(
         train_path,
         classes=[mask_folder],
         class_mode=None,
@@ -552,12 +570,8 @@ def train_generator(batch_size,
         save_to_dir=save_to_dir,
         save_prefix=mask_save_prefix,
         seed=seed)
-    train_generator = zip(image_generator, mask_generator)
-    for (img, mask) in train_generator:
-        img, mask = adjust_data(img, mask, flag_multi_class, num_class,
-                                target_size, image_color)
-        yield (img, mask)
-
+    image_mask_pair_flow = zip(image_flow, mask_flow)
+    return image_mask_pair_flow
 
 def get_test_data(test_path, target_size=(256, 256), color_model='rgb'):
     color_convertion_function = get_color_convertion_function(color_model)
@@ -570,35 +584,35 @@ def get_test_data(test_path, target_size=(256, 256), color_model='rgb'):
         color_mode="rgb",
         target_size=target_size,
         batch_size=1,
-        shuffle=True)
+        shuffle=False)
     return test_flow
 
+def train_generator(image_mask_pair_flow, image_color_model):
+    for (img, mask) in image_mask_pair_flow:
+        processed_img_array = preprocess_images_in_batch(img, image_color_model)
+        mask, mask_iris = preprocess_mask_input(mask)
+        yield ([processed_img_array], [mask, mask_iris])
 
-def test_generator(test_flow, color_model):
+def test_generator(test_flow, image_color_model):
     for img in test_flow:
-        processed_img = []
-        if color_model in ('rgb', 'ycbcr'):
-            img = img / 255
-        for im in img:
-            im = add_sobel_filters(im, -1)
-            processed_img.append(im)
-        processed_img = np.array(processed_img)
-        yield [processed_img]
+        processed_img_array = preprocess_images_in_batch(img, image_color_model)
+        yield [processed_img_array]
 
 
 def save_result(save_path,
                 npyfile,
                 file_names,
                 weights_name,
-                flag_multi_class=False,
-                num_class=2):
+                target_size=(256, 256),
+                num_class=3,
+                save_each_layer=False):
     for ol in range(len(npyfile)):
         layer_output = npyfile[ol]
         for i, item in enumerate(layer_output):
             file_name = os.path.split(file_names[i])[1]
             #  file_name=file_names[i]
             if ol == 0:
-                output_shape = (256, 256, num_class)
+                output_shape = (target_size[0], target_size[1], num_class)
                 item = np.reshape(item, output_shape)
                 visualized_img = max_rgb_filter(item)
                 visualized_img[visualized_img > 0] = 1
@@ -609,24 +623,24 @@ def save_result(save_path,
                             save_path,
                             f"{file_name}-{weights_name}-{ol+1}-merged.png"),
                         visualized_img)
-                    skimage.io.imsave(
-                        os.path.join(
-                            save_path,
-                            f"{file_name}-{weights_name}-{ol+1}-0.png"),
-                        item[:, :, 0])
-                    skimage.io.imsave(
-                        os.path.join(
-                            save_path,
-                            f"{file_name}-{weights_name}-{ol+1}-1.png"),
-                        item[:, :, 1])
-                    skimage.io.imsave(
-                        os.path.join(
-                            save_path,
-                            f"{file_name}-{weights_name}-{ol+1}-2.png"),
-                        item[:, :, 2])
+                    if save_each_layer:
+                        skimage.io.imsave(
+                            os.path.join(
+                                save_path,
+                                f"{file_name}-{weights_name}-{ol+1}-0.png"),
+                            item[:, :, 0])
+                        skimage.io.imsave(
+                            os.path.join(
+                                save_path,
+                                f"{file_name}-{weights_name}-{ol+1}-1.png"),
+                            item[:, :, 1])
+                        skimage.io.imsave(
+                            os.path.join(
+                                save_path,
+                                f"{file_name}-{weights_name}-{ol+1}-2.png"),
+                            item[:, :, 2])
             elif ol == 1:
-                output_shape = (256, 256)
-                item = np.reshape(item, output_shape)
+                item = np.reshape(item, target_size)
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
                     skimage.io.imsave(
@@ -634,38 +648,6 @@ def save_result(save_path,
                             save_path,
                             f"{file_name}-{weights_name}-{ol+1}-iris.png"),
                         item[:, :])
-
-
-def save_metrics(loss_acc_file, history, epoch):
-    if not os.path.exists(loss_acc_file):
-        with open(loss_acc_file, "w") as f:
-            f.write(
-                'epoch,output1_acc,val_output1_acc,output_iris_acc,val_output_iris_acc,output1_loss,val_output1_loss,output_iris_loss,val_output_iris_loss\n'
-            )
-    output1_acc = history.history['output1_acc'][-1]
-    val_output1_acc = history.history['val_output1_acc'][-1]
-    output_iris_acc = history.history['output_iris_acc'][-1]
-    val_output_iris_acc = history.history['val_output_iris_acc'][-1]
-
-    output1_loss = history.history['output1_loss'][-1]
-    val_output1_loss = history.history['val_output1_loss'][-1]
-    output_iris_loss = history.history['output_iris_loss'][-1]
-    val_output_iris_loss = history.history['val_output_iris_loss'][-1]
-
-    loss_acc = ','.join(
-        str(e) for e in [
-            epoch,
-            output1_acc,
-            val_output1_acc,
-            output_iris_acc,
-            val_output_iris_acc,
-            output1_loss,
-            val_output1_loss,
-            output_iris_loss,
-            val_output_iris_loss,
-        ])
-    with open(loss_acc_file, "a") as f:
-        f.write(f"{loss_acc}\n")
 
 
 def plot_graph(figure_num, epoch_list, x, y, x_label, y_label, title, legend,
@@ -721,6 +703,7 @@ def plot(experiment_name):
 
     # immediately show plotted graphs
     #  plt.show()
+    return
 
 
 @cli.command()
@@ -731,16 +714,18 @@ def plot(experiment_name):
 def test(experiment_name, weight, test_dir_name, batch_normalization):
     cprint(f"> Running `test` command on ", color='green', end='')
     cprint(f"{experiment_name}", color='green', attrs=['bold'], end=', ')
-    cprint(f"{batch_normalization}", color='grey', attrs=['bold'], end='')
+    cprint(f"{batch_normalization}", color='grey', attrs=['bold'], end=', ')
     cprint(f" experiment", color='green')
     #  experiment_name = "eye_v2-baseline_v8_multiclass-softmax-cce-lw_8421-lr_1e_3"
     #  weight = "98800"
     #  test_dir_name = 'blind_conj'
     BATCH_SIZE = 6  # 10
-    INPUT_SIZE = (256, 256, 5)
+    INPUT_SIZE = (256, 256, 4)
     TARGET_SIZE = (256, 256)
     NUM_CLASSES = 3
     COLOR_MODEL = 'hsv'  # rgb, hsv, ycbcr, gray
+    SAVE_EACH_LAYER = False
+    PREDICT_VERBOSE = 1 # 0 = silent, 1
 
     cprint(f"The weight at epoch#", color='green', end='')
     cprint(f"{weight}", color='green', attrs=['bold'], end='')
@@ -779,6 +764,7 @@ def test(experiment_name, weight, test_dir_name, batch_normalization):
             f.write(f"TARGET_SIZE={TARGET_SIZE}\n")
             f.write(f"NUM_CLASSES={NUM_CLASSES}\n")
             f.write(f"COLOR_MODEL={COLOR_MODEL}\n")
+            f.write(f"SAVE_EACH_LAYER={SAVE_EACH_LAYER}\n")
             f.write(f"=======================\n")
 
     save_prediction_settings_file()
@@ -789,8 +775,8 @@ def test(experiment_name, weight, test_dir_name, batch_normalization):
     # load pretrained model
     model = create_model(
         pretrained_weights=trained_weights_file,
-        num_classes=NUM_CLASSES,
         input_size=INPUT_SIZE,
+        num_classes=NUM_CLASSES,
         batch_normalization=batch_normalization)
 
     # test the model
@@ -801,14 +787,15 @@ def test(experiment_name, weight, test_dir_name, batch_normalization):
     num_test_files = len(test_files)
 
     results = model.predict_generator(
-        test_gen, steps=num_test_files, verbose=1)
+        test_gen, steps=num_test_files, verbose=PREDICT_VERBOSE)
     save_result(
         predicted_set_dir,
         results,
         file_names=test_files,
         weights_name=weight,
-        flag_multi_class=True,
-        num_class=NUM_CLASSES)
+        target_size=TARGET_SIZE,
+        num_class=NUM_CLASSES,
+        save_each_layer=SAVE_EACH_LAYER)
     cprint(
         f"> `test` command was successfully run, the predicted result will be in ",
         color='green',
