@@ -47,10 +47,7 @@ def draw_graph(epoch_list, x, y, x_label, y_label, title, legend, is_moving_aver
 @click.option("--show", "is_show_plots", is_flag=True)
 def plot(is_moving_average, is_show_plots):
     LOO = 16
-    # experiment_name_template = "eye_v3-baseline_v12_multiclass-softmax-cce-lw_1_0.01-rgb2hsv-loo_{0}-lr_1e_2-bn"
-    experiment_name_template = (
-        "eye_v3-baseline_v15_multiclass-softmax-cce-lw_1_0.01-loo_{0}-lr_1e_2-bn"
-    )
+    experiment_name_template = "eye_v3-model_v16_multiclass-softmax-cce-lw_1_0.01-hsv-canny_1_3_5-loo_{0}-lr_1e_2-bn"
 
     graphs_dir = os.path.join("data", "comparison")
     csv_dir = os.path.join(graphs_dir, "csv")
@@ -58,6 +55,7 @@ def plot(is_moving_average, is_show_plots):
         os.makedirs(csv_dir)
 
     history_list = []
+    average_last_2000_output1_val_acc_list = []
     max_train_list = []
     max_val_list = []
 
@@ -89,14 +87,29 @@ def plot(is_moving_average, is_show_plots):
             ["Train Accuracy", "Validation Accuracy"],
             is_moving_average,
         )
-        # calculate statistics figures
+
+        """
+        calculate statistics figures from all points of data
+        """
+
+        # find max accuracy of this epoch
         max_train = calculate_max(history_data["output1_acc"])
         max_val = calculate_max(history_data["val_output1_acc"])
         max_train_list.append(max_train)
         max_val_list.append(max_val)
-        stats_text = f"MAX train = {max_train}\nMAX validation = {max_val}"
 
-        # find the max accuracy on validation set of this fold
+        # find average of last 2000 epochs
+        average_last_2000_output1_val_acc_train = calculate_average_last_n(
+            history_data["val_output1_acc"], 2000
+        )
+        average_last_2000_output1_val_acc_list.append(
+            average_last_2000_output1_val_acc_train
+        )
+
+        """
+        find the max accuracy of this fold to be used in the other models
+        by using only every 100 epoch data
+        """
 
         # replace the others apart from every 100 epochs with 0
         # as we don't have their weights yet
@@ -115,6 +128,11 @@ def plot(is_moving_average, is_show_plots):
             best_of_all["epoch"] = max_val_epoch
             best_of_all["fold"] = l + 1  # plug 1 as it starts from 0
 
+        """
+        draw and save figures of this fold
+        """
+
+        stats_text = f"MAX train = {max_train}\nMAX validation = {max_val}\nAVG 2000 val = {average_last_2000_output1_val_acc_train}"
         # overlay statistics values on the graph figure
         anchored_text = AnchoredText(stats_text, loc=3)  # 3=lower left
         ax = fig_loo.gca()
@@ -157,14 +175,16 @@ def plot(is_moving_average, is_show_plots):
     #  fig_avg.text(3, 8, 'boxed italics text in data coords', style='italic', bbox={'facecolor': 'red', 'alpha': 0.5, 'pad': 10})
     max_train = calculate_max(avg_output1_acc_list)
     max_val = calculate_max(avg_output1_val_acc_list)
-    max_train_list.append(max_train)
-    max_val_list.append(max_val)
     stats_text = f"MAX train = {max_train}\nMAX validation = {max_val}"
     anchored_text = AnchoredText(stats_text, loc=3)  # 3=lower left
     ax = fig_avg.gca()
     ax.add_artist(anchored_text)
     # store figure on disk
     fig_avg.savefig(output1_avg_acc_file, bbox_inches="tight")
+
+    """
+    Write statistics data to a file
+    """
 
     # save train/val accuracy lists to csv file
     acc_csv_filename = f"{experiment_name}{moving_average_string}.csv"
@@ -173,15 +193,26 @@ def plot(is_moving_average, is_show_plots):
         csv_writer = csv.writer(
             csv_f, delimiter="\t", quotechar='"', quoting=csv.QUOTE_MINIMAL
         )
+        # prepare data
         header_list = list(range(1, LOO + 1))
+        header_list.insert(0, "type")
         header_list.append("average")
+        # average of all last 2000 epochs average data
+        average_last_2000_output1_val_acc_list.append(
+            average_from_string_list(average_last_2000_output1_val_acc_list)
+        )
+        average_last_2000_output1_val_acc_list.insert(0, "average 2000 val")
+        max_train_list.append(average_from_string_list(max_train_list))
+        max_train_list.insert(0, "max train")
+        max_val_list.append(average_from_string_list(max_val_list))
+        max_val_list.insert(0, "max val")
+        # write data to file
         csv_writer.writerow(header_list)
         csv_writer.writerow(max_train_list)
         csv_writer.writerow(max_val_list)
+        csv_writer.writerow(average_last_2000_output1_val_acc_list)
 
-    print(f"MAX train = {max_train}")
-    print(f"MAX validation = {max_val}")
-
+    print("===== EVERY 100 EPOCH STATS =====")
     print(
         f"Best of all: accuracy={best_of_all['accuracy']} in fold={best_of_all['fold']} at epoch={best_of_all['epoch']}"
     )
@@ -191,9 +222,22 @@ def plot(is_moving_average, is_show_plots):
         plt.show()
 
 
+def format_percent(number):
+    return format(number, "3.2f")
+
+
 def calculate_max(data):
     max_percent = np.max(data) * 100
-    return format(max_percent, "3.2f")
+    return format_percent(max_percent)
+
+
+def calculate_average_last_n(data, n):
+    average = np.mean(data[-n:]) * 100
+    return format_percent(average)
+
+
+def average_from_string_list(data):
+    return format_percent(np.mean(list(map(float, data))))
 
 
 if __name__ == "__main__":
