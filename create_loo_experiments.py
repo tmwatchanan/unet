@@ -4,7 +4,7 @@ import shutil
 import copy
 
 EXPERIMENT_NAME = (
-    "eye_v3-baseline_v11_multiclass-softmax-cce-lw_1_0.01-hsv-loo_{}-lr_1e_2-bn"
+    "eye_v3-model_v13_multiclass-softmax-cce-lw_1_0.01-hsv-loo_{}-lr_1e_2-bn"
 )
 
 eye_v3_dir = os.path.join("datasets", "eye_v3")
