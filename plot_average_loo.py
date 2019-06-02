@@ -47,7 +47,9 @@ def draw_graph(epoch_list, x, y, x_label, y_label, title, legend, is_moving_aver
 @click.option("--show", "is_show_plots", is_flag=True)
 def plot(is_moving_average, is_show_plots):
     LOO = 16
-    experiment_name_template = "eye_v3-model_v16_multiclass-softmax-cce-lw_1_0.01-hsv-canny_1_3_5-loo_{0}-lr_1e_2-bn"
+    experiment_name_template = (
+        "eye_v3-model_v12_multiclass-softmax-cce-lw_1_0.01-hsv-loo_{0}-lr_1e_2-bn"
+    )
 
     graphs_dir = os.path.join("data", "comparison")
     csv_dir = os.path.join(graphs_dir, "csv")
@@ -126,7 +128,7 @@ def plot(is_moving_average, is_show_plots):
         if max_val_acc > best_of_all["accuracy"]:
             best_of_all["accuracy"] = max_val_acc
             best_of_all["epoch"] = max_val_epoch
-            best_of_all["fold"] = l + 1  # plug 1 as it starts from 0
+            best_of_all["fold"] = l + 1  # plus 1 as it starts from 0
 
         """
         draw and save figures of this fold
