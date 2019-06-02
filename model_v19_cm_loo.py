@@ -177,7 +177,7 @@ def train(ctx):
         DATASET_NAME = 'eye_v3'
         COLOR_MODEL = 'hsv'  # rgb, hsv, ycbcr, gray
         MODEL_NAME = 'model_v19_multiclass'
-        MODEL_INFO = f"softmax-cce-lw_1_0.01-{COLOR_MODEL}-p1-loo_{loo}"
+        MODEL_INFO = f"softmax-cce-lw_1_0.01-{COLOR_MODEL}-s1-loo_{loo}"
         BATCH_NORMALIZATION = True
         LEARNING_RATE = "1e_2"
         EXPERIMENT_NAME = f"{DATASET_NAME}-{MODEL_NAME}-{MODEL_INFO}-lr_{LEARNING_RATE}" + (
@@ -853,7 +853,7 @@ def test(experiment_name, weight, test_dir_name, batch_normalization):
 @cli.command()
 @click.argument('experiment_name_replacement')
 def create(experiment_name_replacement):
-    # experiment_name_replacement = "eye_v3-model_v19_multiclass-softmax-cce-lw_1_0.01-hsv-p1-loo_{}-lr_1e_2-bn"
+    # experiment_name_replacement = "eye_v3-model_v19_multiclass-softmax-cce-lw_1_0.01-hsv-s1-loo_{}-lr_1e_2-bn"
 
     eye_v3_dir = os.path.join("datasets", "eye_v3")
     eye_v3_images_dir = os.path.join(eye_v3_dir, "images")
