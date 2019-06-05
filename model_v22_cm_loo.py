@@ -211,7 +211,7 @@ def train(ctx):
         TEST_DIR_NAME = "test"
         EPOCH_START = 0
         EPOCH_END = 5000
-        MODEL_PERIOD = 1
+        MODEL_PERIOD = 100
         BATCH_SIZE = 6  # 10
         STEPS_PER_EPOCH = 1  # None
         INPUT_SIZE = (256, 256)
@@ -422,7 +422,9 @@ def create_model(
     def create_structure(input_size, input_name):
         input_layer = Input(shape=input_size, name=input_name)
 
-        layer1 = Conv2D(6, 3, padding="same", kernel_initializer="he_normal")(input_layer)
+        layer1 = Conv2D(6, 3, padding="same", kernel_initializer="he_normal")(
+            input_layer
+        )
 
         if batch_normalization:
             layer1 = BatchNormalization()(layer1)
@@ -656,11 +658,7 @@ def get_train_data(
 
 
 def get_test_data(
-    test_path,
-    image_folder="images",
-    target_size=(256, 256),
-    image_color="rgb",
-    seed=1,
+    test_path, image_folder="images", target_size=(256, 256), image_color="rgb", seed=1
 ):
     color_convertion_function = get_color_convertion_function(image_color)
     test_datagen = ImageDataGenerator(preprocessing_function=color_convertion_function)
@@ -680,9 +678,7 @@ def get_test_data(
 
 def train_generator(image_mask_pair_flow, image_color_model):
     for (img_batch, mask_batch) in image_mask_pair_flow:
-        processed_img_array = preprocess_images_in_batch(
-            img_batch, image_color_model
-        )
+        processed_img_array = preprocess_images_in_batch(img_batch, image_color_model)
         gradients = compute_gradients_in_batch(img_batch, image_color_model)
         mask, mask_iris = preprocess_mask_input(mask_batch)
         yield ([processed_img_array, gradients], [mask, mask_iris])
@@ -690,9 +686,7 @@ def train_generator(image_mask_pair_flow, image_color_model):
 
 def test_generator(test_flow, image_color_model):
     for img_batch in test_flow:
-        processed_img_array = preprocess_images_in_batch(
-            img_batch, image_color_model
-        )
+        processed_img_array = preprocess_images_in_batch(img_batch, image_color_model)
         gradients = compute_gradients_in_batch(img_batch, image_color_model)
         yield [processed_img_array, gradients]
 
