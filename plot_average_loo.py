@@ -48,7 +48,7 @@ def draw_graph(epoch_list, x, y, x_label, y_label, title, legend, is_moving_aver
 def plot(is_moving_average, is_show_plots):
     LOO = 16
     experiment_name_template = (
-        "eye_v3-model_v12_multiclass-softmax-cce-lw_1_0.01-hsv-loo_{0}-lr_1e_2-bn"
+        "eye_v3-s3-model_v21_multiclass-softmax-cce-lw_1_0.01-hsv-loo_{0}-lr_1e_2-bn"
     )
 
     graphs_dir = os.path.join("data", "comparison")
@@ -58,6 +58,7 @@ def plot(is_moving_average, is_show_plots):
 
     history_list = []
     average_last_2000_output1_val_acc_list = []
+    sd_last_2000_output1_val_acc_list = []
     max_train_list = []
     max_val_list = []
 
@@ -107,6 +108,11 @@ def plot(is_moving_average, is_show_plots):
         average_last_2000_output1_val_acc_list.append(
             average_last_2000_output1_val_acc_train
         )
+        # find standard deviation of last 2000 epochs
+        sd_last_2000_output1_val_acc_train = calculate_sd_last_n(
+            history_data["val_output1_acc"], 2000
+        )
+        sd_last_2000_output1_val_acc_list.append(sd_last_2000_output1_val_acc_train)
 
         """
         find the max accuracy of this fold to be used in the other models
@@ -134,7 +140,7 @@ def plot(is_moving_average, is_show_plots):
         draw and save figures of this fold
         """
 
-        stats_text = f"MAX train = {max_train}\nMAX validation = {max_val}\nAVG 2000 val = {average_last_2000_output1_val_acc_train}"
+        stats_text = f"MAX train = {max_train}\nMAX validation = {max_val}\nAVG 2000 val = {average_last_2000_output1_val_acc_train} ± {sd_last_2000_output1_val_acc_train}"
         # overlay statistics values on the graph figure
         anchored_text = AnchoredText(stats_text, loc=3)  # 3=lower left
         ax = fig_loo.gca()
@@ -203,7 +209,12 @@ def plot(is_moving_average, is_show_plots):
         average_last_2000_output1_val_acc_list.append(
             average_from_string_list(average_last_2000_output1_val_acc_list)
         )
+        # average of all last 2000 epochs standard deviation data
+        sd_last_2000_output1_val_acc_list.append(
+            average_from_string_list(sd_last_2000_output1_val_acc_list)
+        )
         average_last_2000_output1_val_acc_list.insert(0, "average 2000 val")
+        sd_last_2000_output1_val_acc_list.insert(0, "SD 2000 val")
         max_train_list.append(average_from_string_list(max_train_list))
         max_train_list.insert(0, "max train")
         max_val_list.append(average_from_string_list(max_val_list))
@@ -213,6 +224,7 @@ def plot(is_moving_average, is_show_plots):
         csv_writer.writerow(max_train_list)
         csv_writer.writerow(max_val_list)
         csv_writer.writerow(average_last_2000_output1_val_acc_list)
+        csv_writer.writerow(sd_last_2000_output1_val_acc_list)
 
     print("===== EVERY 100 EPOCH STATS =====")
     print(
@@ -238,8 +250,17 @@ def calculate_average_last_n(data, n):
     return format_percent(average)
 
 
+def calculate_sd_last_n(data, n):
+    sd = np.std(data[-n:])
+    return format_percent(sd)
+
+
 def average_from_string_list(data):
     return format_percent(np.mean(list(map(float, data))))
+
+
+def sd_from_string_list(data):
+    return format_percent(np.std(list(map(float, data))))
 
 
 if __name__ == "__main__":
