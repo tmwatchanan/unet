@@ -242,7 +242,7 @@ def format_percent(number):
 
 
 def convert_to_percentage(number):
-    return format(number * 100, "3.2f")
+    return format_percent(number * 100)
 
 
 def calculate_max(data):
