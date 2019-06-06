@@ -75,8 +75,10 @@ def plot(is_moving_average, is_show_plots):
         output1_acc_file = os.path.join(graphs_dir, output1_acc_filename)
         dataset_path = os.path.join("data", experiment_name)
         training_log_file = os.path.join(dataset_path, "training.csv")
+        training_time_log_file = os.path.join(dataset_path, "training_time.csv")
         # read data from csv file
         history_data = pd.read_csv(training_log_file)
+        time_data = pd.read_csv(training_time_log_file)
         # plot a graph of each fold
         graph_title = f"{experiment_name}\nOutput 1 Model Accuracy"
         graph_title += " (moving average)" if is_moving_average else ""
@@ -115,6 +117,15 @@ def plot(is_moving_average, is_show_plots):
         sd_last_2000_output1_val_acc_list.append(sd_last_2000_output1_val_acc_train)
 
         """
+        calculate statistics figures about time data
+        """
+
+        # calculate average time per epoch
+        average_time_per_epoch = np.mean(time_data["time_per_epoch"])
+        # calculate elasped time per fold
+        sum_time_per_epoch = np.sum(time_data["time_per_epoch"])
+
+        """
         find the max accuracy of this fold to be used in the other models
         by using only every 100 epoch data
         """
@@ -140,7 +151,12 @@ def plot(is_moving_average, is_show_plots):
         draw and save figures of this fold
         """
 
-        stats_text = f"MAX train = {max_train}\nMAX validation = {max_val}\nAVG 2000 val = {average_last_2000_output1_val_acc_train} ± {sd_last_2000_output1_val_acc_train}"
+        stats_text = (
+            f"MAX train = {max_train}\n"
+            f"MAX validation = {max_val}\n"
+            f"AVG 2000 val = {average_last_2000_output1_val_acc_train} ± {sd_last_2000_output1_val_acc_train}\n"
+            f"Elapsed time = {sum_time_per_epoch:.2f} s. (avg={average_time_per_epoch:.2f} s.)"
+        )
         # overlay statistics values on the graph figure
         anchored_text = AnchoredText(stats_text, loc=3)  # 3=lower left
         ax = fig_loo.gca()
