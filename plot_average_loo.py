@@ -48,7 +48,7 @@ def draw_graph(epoch_list, x, y, x_label, y_label, title, legend, is_moving_aver
 def plot(is_moving_average, is_show_plots):
     LOO = 16
     experiment_name_template = (
-        "eye_v3-s3-model_v21_multiclass-softmax-cce-lw_1_0.01-hsv-loo_{0}-lr_1e_2-bn"
+        "eye_v3-model_v22_multiclass-softmax-cce-lw_1_0.01-hsv-loo_{0}-lr_1e_2-bn"
     )
 
     graphs_dir = os.path.join("data", "comparison")
@@ -227,8 +227,9 @@ def plot(is_moving_average, is_show_plots):
         csv_writer.writerow(sd_last_2000_output1_val_acc_list)
 
     print("===== EVERY 100 EPOCH STATS =====")
+    best_of_all_accuracy_percent = convert_to_percentage(best_of_all["accuracy"])
     print(
-        f"Best of all: accuracy={best_of_all['accuracy']} in fold={best_of_all['fold']} at epoch={best_of_all['epoch']}"
+        f"Best of all: accuracy={best_of_all_accuracy_percent}% in fold={best_of_all['fold']} at epoch={best_of_all['epoch']}"
     )
 
     # immediately show plotted graphs
@@ -238,6 +239,10 @@ def plot(is_moving_average, is_show_plots):
 
 def format_percent(number):
     return format(number, "3.2f")
+
+
+def convert_to_percentage(number):
+    return format(number * 100, "3.2f")
 
 
 def calculate_max(data):
