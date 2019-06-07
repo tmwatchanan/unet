@@ -18,30 +18,18 @@ import numpy as np
 import pandas as pd
 import six
 import skimage
-from scipy import ndimage
 import tensorflow as tf
 from keras import backend as K
-from keras.callbacks import Callback, CSVLogger, LambdaCallback, ModelCheckpoint
-from keras.layers import (
-    Activation,
-    BatchNormalization,
-    Concatenate,
-    Conv2D,
-    Dense,
-    Flatten,
-    Input,
-    Lambda,
-    MaxPooling2D,
-    Permute,
-    Reshape,
-    ThresholdedReLU,
-    UpSampling2D,
-    Concatenate,
-)
+from keras.callbacks import (Callback, CSVLogger, LambdaCallback,
+                             ModelCheckpoint)
+from keras.layers import (Activation, BatchNormalization, Concatenate, Conv2D,
+                          Dense, Flatten, Input, Lambda, MaxPooling2D, Permute,
+                          Reshape, ThresholdedReLU, UpSampling2D)
 from keras.models import Model
 from keras.optimizers import Adam
 from keras.preprocessing.image import ImageDataGenerator
 from keras.utils import plot_model
+from scipy import ndimage
 from tensorflow.python.keras.callbacks import TensorBoard
 from termcolor import colored, cprint
 
@@ -228,6 +216,7 @@ def train(ctx):
                 print("You can change the value of BATCH_SIZE in this file")
                 exit(1)
 
+        
         dataset_path = os.path.join("data", EXPERIMENT_NAME)
         weights_dir = os.path.join(dataset_path, "weights")
         training_set_dir = os.path.join(dataset_path, "train")
@@ -926,9 +915,7 @@ def test(experiment_name, weight, test_dir_name, batch_normalization):
     )
 
     # test the model
-    test_data_dict = dict(
-        test_path=test_set_dir, target_size=TARGET_SIZE, color_model=COLOR_MODEL
-    )
+    test_data_dict = dict(test_path=test_set_dir, target_size=TARGET_SIZE, color_model=COLOR_MODEL)
     test_flow, test_files = get_test_data(**test_data_dict)
     test_gen = test_generator(test_flow, COLOR_MODEL)
     num_test_files = len(test_files)

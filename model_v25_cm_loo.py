@@ -196,7 +196,7 @@ def train(ctx):
             f"{DATASET_NAME}-{MODEL_NAME}-{MODEL_INFO}-lr_{LEARNING_RATE}"
             + ("-bn" if BATCH_NORMALIZATION else "")
         )
-        TEST_DIR_NAME = "test"z
+        TEST_DIR_NAME = "test"
         EPOCH_START = 0
         EPOCH_END = 5000
         MODEL_PERIOD = 100
