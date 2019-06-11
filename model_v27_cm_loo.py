@@ -211,7 +211,7 @@ def train(ctx):
         TEST_DIR_NAME = "test"
         EPOCH_START = 0
         EPOCH_END = 5000
-        MODEL_PERIOD = 100
+        MODEL_PERIOD = 2
         BATCH_SIZE = 6  # 10
         STEPS_PER_EPOCH = 1  # None
         INPUT_SIZE = (256, 256, 3 + 6)  # 6 comes from the 1-pass segments
@@ -420,6 +420,7 @@ def create_model(
     num_classes=2,
     learning_rate=1e-4,
     batch_normalization=False,
+    is_summary=True,
 ):
     input1_size = input_size
     input1 = Input(shape=input1_size, name="input1")
@@ -506,7 +507,8 @@ def create_model(
         metrics={"output1": ["accuracy"], "output_iris": ["accuracy"]},
     )
 
-    model.summary()
+    if is_summary:
+        model.summary()
 
     if pretrained_weights:
         model.load_weights(pretrained_weights)
@@ -609,6 +611,7 @@ def get_train_data(
         save_to_dir=save_to_dir,
         save_prefix=image_save_prefix,
         seed=seed,
+        shuffle=False,
     )
     segments1_path = os.path.join(train_path, "segments", "1")
     segment1_flows = []
@@ -624,6 +627,7 @@ def get_train_data(
             save_to_dir=save_to_dir,
             save_prefix=image_save_prefix,
             seed=seed,
+            shuffle=False,
         )
         segment1_flows.append(segment1_flow)
     segments2_path = os.path.join(train_path, "segments", "2")
@@ -640,6 +644,7 @@ def get_train_data(
             save_to_dir=save_to_dir,
             save_prefix=image_save_prefix,
             seed=seed,
+            shuffle=False,
         )
         segment2_flows.append(segment2_flow)
     mask_flow = mask_datagen.flow_from_directory(
@@ -652,6 +657,7 @@ def get_train_data(
         save_to_dir=save_to_dir,
         save_prefix=mask_save_prefix,
         seed=seed,
+        shuffle=False,
     )
     image_mask_pair_flow = (image_flow, segment1_flows, segment2_flows, mask_flow)
     return image_mask_pair_flow
@@ -711,17 +717,17 @@ def get_test_data(
         segment2_flows.append(segment2_flow)
     return (image_flow, segment1_flows, segment2_flows), image_flow.filenames
 
-
 def train_generator(image_mask_pair_flow, image_color_model):
     (img_flow, segment1_flows, segment2_flows, mask_flow) = image_mask_pair_flow
-    for segment1_set, segment2_set in zip(segment1_flows, segment2_flows):
-        for segment1_batch, segment2_batch in zip(segment1_set, segment2_set):
-            for (img_batch, mask_batch) in zip(img_flow, mask_flow):
+    for (img_batch, mask_batch) in zip(img_flow, mask_flow):
+        for segment1_set, segment2_set in zip(segment1_flows, segment2_flows):
+            for segment1_batch, segment2_batch in zip(segment1_set, segment2_set):
                 processed_img_array = preprocess_images_in_batch(
                     img_batch, segment1_batch, segment2_batch, image_color_model
                 )
                 mask, mask_iris = preprocess_mask_input(mask_batch)
                 yield ([processed_img_array], [mask, mask_iris])
+
 
 
 def test_generator(test_flow, image_color_model):
@@ -981,9 +987,12 @@ def test(experiment_name, weight, test_dir_name, batch_normalization):
     cprint(f"{predicted_set_dirname}", color="green", attrs=["bold"])
 
 
-def copy_file(src_dir, dest_dir, filename):
-    src = os.path.join(src_dir, filename)
-    dest = os.path.join(dest_dir, filename)
+def copy_file(src_dir, dest_dir, src_filename, dest_filename=None):
+    src = os.path.join(src_dir, src_filename)
+    if dest_filename:
+        dest = os.path.join(dest_dir, dest_filename)
+    else:
+        dest = os.path.join(dest_dir, src_filename)
     try:
         shutil.copy(src, dest)
     except IOError as e:
@@ -1012,6 +1021,7 @@ def create(dataset, experiment_name_replacement):
     eye_v3_images_dir = os.path.join(eye_v3_dir, "images")
     eye_v3_segments_dir = os.path.join(eye_v3_dir, "segments")
     eye_v3_labels_dir = os.path.join(eye_v3_dir, "labels")
+    epoch_list = range(500, 5000+1, 100)
 
     filenames = next(os.walk(eye_v3_images_dir))[2]
     filenames = natsort.natsorted(filenames, reverse=False)
@@ -1031,22 +1041,21 @@ def create(dataset, experiment_name_replacement):
         print(idx, filename, sub_exp_path)
 
         # copy test files
-        test_images_path = os.path.join(sub_exp_path, "test", "images")
-        shutil.copytree(eye_v3_images_dir, test_images_path)
-        test_segments_path = os.path.join(sub_exp_path, "test", "segments")
-        shutil.copytree(eye_v3_segments_dir, test_segments_path)
+        test_path = os.path.join(sub_exp_path, "test")
+        test_images_path = os.path.join(test_path, "images")
 
         # define paths of training sets
         train_path = os.path.join(sub_exp_path, "train")
         train_images_path = os.path.join(train_path, "images")
         train_labels_path = os.path.join(train_path, "labels")
-        train_segments_path = os.path.join(train_path, "segments")
 
         # define paths of validation sets
         validation_path = os.path.join(sub_exp_path, "validation")
         validation_images_path = os.path.join(validation_path, "images")
         validation_labels_path = os.path.join(validation_path, "labels")
-        validation_segments_path = os.path.join(validation_path, "segments")
+
+        # create the destination directories of test set
+        create_directory(test_images_path)
 
         # create the destination directories of training set
         create_directory(train_images_path)
@@ -1061,71 +1070,91 @@ def create(dataset, experiment_name_replacement):
         """
         train_images_file_list = copy.deepcopy(filenames)
         del train_images_file_list[idx]
-        validation_images_file = filenames[idx]
-
-        train_segment_paths = [
-            os.path.join(train_segments_path, segment_name)
-            for segment_name in train_images_file_list
-        ]
-        validation_segment_paths = os.path.join(
-            validation_segments_path, validation_images_file
-        )
+        validation_image_file = filenames[idx]
 
         """
         Copy multiple segments
         """
-
-        # segments in training set
 
         segment_set_directories = [
             o
             for o in os.listdir(eye_v3_segments_dir)
             if os.path.isdir(os.path.join(eye_v3_segments_dir, o))
         ]
-        for segment_set_directory in segment_set_directories:
-            for segment_of_eye_directory in train_images_file_list:
+        for src_segment_set_directory_name in segment_set_directories:
+            dest_segment_set_name = f"segments_{src_segment_set_directory_name}"
+            # [TEST]
+            # segments in test set
+            test_segments_path = os.path.join(test_path, dest_segment_set_name)
+            create_directory(test_segments_path)
+            for segment_of_eye_directory in filenames:
                 segment_directory_src_path = os.path.join(
-                    eye_v3_segments_dir, segment_set_directory, segment_of_eye_directory
+                    eye_v3_segments_dir, src_segment_set_directory_name, segment_of_eye_directory
                 )
                 segment_filenames = next(os.walk(segment_directory_src_path))[2]
-                train_segment_directory_dest_path = os.path.join(
-                    train_segments_path, segment_set_directory, segment_of_eye_directory
-                )
-                create_directory(train_segment_directory_dest_path)
                 for segment_filename in segment_filenames:
                     copy_file(
                         segment_directory_src_path,
-                        train_segment_directory_dest_path,
+                        test_segments_path,
                         segment_filename,
                     )
+            # [TRAINING]
+            # segments in training set
+            train_segments_path = os.path.join(train_path, dest_segment_set_name)
+            create_directory(train_segments_path)
+            for segment_of_eye_directory in train_images_file_list:
+                segment_directory_src_path = os.path.join(
+                    eye_v3_segments_dir, src_segment_set_directory_name, segment_of_eye_directory
+                )
+                segment_filenames = next(os.walk(segment_directory_src_path))[2]
+                for segment_filename in segment_filenames:
+                    copy_file(
+                        segment_directory_src_path,
+                        train_segments_path,
+                        segment_filename,
+                    )
+            # [VALIDATION]
             # segments in validation set
+            validation_segments_path = os.path.join(validation_path, dest_segment_set_name)
+            create_directory(validation_segments_path)
             validation_segment_directory_src_path = os.path.join(
-                eye_v3_segments_dir, segment_set_directory, validation_images_file
+                eye_v3_segments_dir, src_segment_set_directory_name, validation_image_file
             )
-            validation_segment_directory_dest_path = os.path.join(
-                validation_segments_path, segment_set_directory, validation_images_file
-            )
-            create_directory(validation_segment_directory_dest_path)
             validation_segment_filenames = next(
                 os.walk(validation_segment_directory_src_path)
             )[2]
             for validation_segment_filename in validation_segment_filenames:
                 copy_file(
                     validation_segment_directory_src_path,
-                    validation_segment_directory_dest_path,
+                    validation_segments_path,
                     validation_segment_filename,
                 )
 
         """
         Copy eye images and their labels
         """
+        # [TEST]
+        # recursive copy of test files for eye images and labels
+        for test_image_file in filenames:
+            for epoch in epoch_list:
+                filename, file_extension = os.path.splitext(test_image_file)
+                new_test_image_file = f"{filename}-{epoch:08d}{file_extension}"
+                copy_file(eye_v3_images_dir, test_images_path, test_image_file, new_test_image_file)
+        # [TRAINING]
         # recursive copy of training files for eye images and labels
-        for img in train_images_file_list:
-            copy_file(eye_v3_images_dir, train_images_path, img)
-            copy_file(eye_v3_labels_dir, train_labels_path, img)
+        for train_image_file in train_images_file_list:
+            for epoch in epoch_list:
+                filename, file_extension = os.path.splitext(train_image_file)
+                new_train_image_file = f"{filename}-{epoch:08d}{file_extension}"
+                copy_file(eye_v3_images_dir, train_images_path, train_image_file, new_train_image_file)
+                copy_file(eye_v3_labels_dir, train_labels_path, train_image_file, new_train_image_file)
+        # [VALIDATION]
         # copy of a validation file for eye image and label
-        copy_file(eye_v3_images_dir, validation_images_path, validation_images_file)
-        copy_file(eye_v3_labels_dir, validation_labels_path, validation_images_file)
+        for epoch in epoch_list:
+            filename, file_extension = os.path.splitext(validation_image_file)
+            new_validation_image_file = f"{filename}-{epoch:08d}{file_extension}"
+            copy_file(eye_v3_images_dir, validation_images_path, validation_image_file, new_validation_image_file)
+            copy_file(eye_v3_labels_dir, validation_labels_path, validation_image_file, new_validation_image_file)
 
 
 @cli.command()
@@ -1182,9 +1211,95 @@ def segments():
                 destination_filename_dir = os.path.join(
                     destination_path, source_filename
                 )
+                print(destination_filename_dir)
                 create_directory(destination_filename_dir)
                 for filename in matched_epoch_filenames:
                     copy_file(predicted_dir, destination_filename_dir, filename)
+
+
+@cli.command()
+@click.pass_context
+def last_n(ctx):
+    for loo in range(1, 16 + 1):
+        DATASET_NAME = "eye_v3-s5"
+        COLOR_MODEL = "hsv"  # rgb, hsv, ycbcr, gray
+        MODEL_NAME = "model_v27_multiclass"
+        MODEL_INFO = f"softmax-cce-lw_1_0.01-{COLOR_MODEL}-loo_{loo}"
+        BATCH_NORMALIZATION = True
+        LEARNING_RATE = "1e_2"
+        EXPERIMENT_NAME = (
+            f"{DATASET_NAME}-{MODEL_NAME}-{MODEL_INFO}-lr_{LEARNING_RATE}"
+            + ("-bn" if BATCH_NORMALIZATION else "")
+        )
+        TEST_DIR_NAME = "test"
+        MODEL_EPOCH_START = 4000
+        MODEL_EPOCH_END = 5000
+        INPUT_EPOCH_START = 500
+        INPUT_EPOCH_END = 5000
+        STEP_SIZE = 100
+        BATCH_SIZE = 1
+        STEPS_PER_EPOCH = 2  # None
+        INPUT_SIZE = (256, 256, 3 + 6)  # 6 comes from the 1-pass segments
+        TARGET_SIZE = (256, 256)
+        NUM_CLASSES = 3
+
+        dataset_path = os.path.join("data", EXPERIMENT_NAME)
+        weights_dir = os.path.join(dataset_path, "weights")
+        validation_set_dir = os.path.join(dataset_path, "validation")
+        validation_images_set_dir = os.path.join(validation_set_dir, "images")
+        validation_labels_set_dir = os.path.join(validation_set_dir, "labels")
+        last_n_file = os.path.join(dataset_path, "last_n.csv")
+
+        for epoch in range(MODEL_EPOCH_START, MODEL_EPOCH_END, STEP_SIZE):
+
+            trained_weights_file = f"{epoch:08d}.hdf5"
+            trained_weights_file = os.path.join(weights_dir, trained_weights_file)
+
+            num_validation = 0
+            for _, _, files in os.walk(validation_images_set_dir):
+                num_validation += len(files)
+            print(f"num_validation={num_validation}")
+
+            learning_rate = float(LEARNING_RATE.replace("_", "-"))
+
+            model = create_model(
+                pretrained_weights=trained_weights_file,
+                input_size=INPUT_SIZE,
+                num_classes=NUM_CLASSES,
+                learning_rate=learning_rate,
+                batch_normalization=BATCH_NORMALIZATION,
+                is_summary=False,
+            )  # load pretrained model
+
+            validation_data_dict = dict(
+                batch_size=BATCH_SIZE,
+                train_path=validation_set_dir,
+                image_color=COLOR_MODEL,
+                mask_color=COLOR_MODEL,
+                save_to_dir=None,
+                target_size=TARGET_SIZE,
+            )
+            validation_flow = get_train_data(**validation_data_dict)
+            validation_gen = train_generator(validation_flow, COLOR_MODEL)
+
+            for (image_batch, mask_batch) in validation_gen:
+                pass
+            total = sum(1 for _ in validation_gen)
+            print("total", total)
+
+            # for (image_batch,), (mask_batch, mask_iris_batch) in validation_gen:
+            #     for image in image_batch:
+            #         print(count)
+            #         count += 1
+
+            history = model.evaluate_generator(
+                validation_gen,
+                steps=STEPS_PER_EPOCH,
+                workers=0,
+                use_multiprocessing=True
+            )
+            print(history)
+
 
 
 if __name__ == "__main__":
