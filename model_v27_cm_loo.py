@@ -211,7 +211,7 @@ def train(ctx):
         TEST_DIR_NAME = "test"
         EPOCH_START = 0
         EPOCH_END = 5000
-        MODEL_PERIOD = 2
+        MODEL_PERIOD = 100
         BATCH_SIZE = 6  # 10
         STEPS_PER_EPOCH = 1  # None
         INPUT_SIZE = (256, 256, 3 + 6)  # 6 comes from the 1-pass segments
@@ -334,7 +334,7 @@ def train(ctx):
         train_gen = train_generator(train_flow, COLOR_MODEL)
 
         validation_data_dict = dict(
-            batch_size=BATCH_SIZE,
+            batch_size=1,
             train_path=validation_set_dir,
             image_color=COLOR_MODEL,
             mask_color=COLOR_MODEL,
@@ -611,42 +611,29 @@ def get_train_data(
         save_to_dir=save_to_dir,
         save_prefix=image_save_prefix,
         seed=seed,
-        shuffle=False,
     )
-    segments1_path = os.path.join(train_path, "segments", "1")
-    segment1_flows = []
-    for filename in image_flow.filenames:
-        filename = filename.split("/")[1]
-        segment1_flow = segment_datagen.flow_from_directory(
-            segments1_path,
-            classes=[filename],
-            class_mode=None,
-            color_mode=image_color_mode,
-            target_size=target_size,
-            batch_size=batch_size,
-            save_to_dir=save_to_dir,
-            save_prefix=image_save_prefix,
-            seed=seed,
-            shuffle=False,
-        )
-        segment1_flows.append(segment1_flow)
-    segments2_path = os.path.join(train_path, "segments", "2")
-    segment2_flows = []
-    for filename in image_flow.filenames:
-        filename = filename.split("/")[1]
-        segment2_flow = segment_datagen.flow_from_directory(
-            segments2_path,
-            classes=[filename],
-            class_mode=None,
-            color_mode=image_color_mode,
-            target_size=target_size,
-            batch_size=batch_size,
-            save_to_dir=save_to_dir,
-            save_prefix=image_save_prefix,
-            seed=seed,
-            shuffle=False,
-        )
-        segment2_flows.append(segment2_flow)
+    segment1_flow = segment_datagen.flow_from_directory(
+        train_path,
+        classes=["segments_1"],
+        class_mode=None,
+        color_mode=image_color_mode,
+        target_size=target_size,
+        batch_size=batch_size,
+        save_to_dir=save_to_dir,
+        save_prefix=image_save_prefix,
+        seed=seed,
+    )
+    segment2_flow = segment_datagen.flow_from_directory(
+        train_path,
+        classes=["segments_2"],
+        class_mode=None,
+        color_mode=image_color_mode,
+        target_size=target_size,
+        batch_size=batch_size,
+        save_to_dir=save_to_dir,
+        save_prefix=image_save_prefix,
+        seed=seed,
+    )
     mask_flow = mask_datagen.flow_from_directory(
         train_path,
         classes=[mask_folder],
@@ -657,9 +644,8 @@ def get_train_data(
         save_to_dir=save_to_dir,
         save_prefix=mask_save_prefix,
         seed=seed,
-        shuffle=False,
     )
-    image_mask_pair_flow = (image_flow, segment1_flows, segment2_flows, mask_flow)
+    image_mask_pair_flow = (image_flow, segment1_flow, segment2_flow, mask_flow)
     return image_mask_pair_flow
 
 
@@ -685,60 +671,48 @@ def get_test_data(
         shuffle=False,
         seed=seed,
     )
-    segments1_path = os.path.join(test_path, "segments", "1")
-    segment1_flows = []
-    for filename in image_flow.filenames:
-        filename = filename.split("/")[1]
-        segment1_flow = segment_datagen.flow_from_directory(
-            segments1_path,
-            classes=[filename],
-            class_mode=None,
-            color_mode="rgb",
-            target_size=target_size,
-            batch_size=1,
-            shuffle=False,
-            seed=seed,
-        )
-        segment1_flows.append(segment1_flow)
-    segments2_path = os.path.join(test_path, "segments", "2")
-    segment2_flows = []
-    for filename in image_flow.filenames:
-        filename = filename.split("/")[1]
-        segment2_flow = segment_datagen.flow_from_directory(
-            segments2_path,
-            classes=[filename],
-            class_mode=None,
-            color_mode="rgb",
-            target_size=target_size,
-            batch_size=1,
-            shuffle=False,
-            seed=seed,
-        )
-        segment2_flows.append(segment2_flow)
-    return (image_flow, segment1_flows, segment2_flows), image_flow.filenames
+    segment1_flow = segment_datagen.flow_from_directory(
+        test_path,
+        classes=["segments_1"],
+        class_mode=None,
+        color_mode="rgb",
+        target_size=target_size,
+        batch_size=1,
+        shuffle=False,
+        seed=seed,
+    )
+    segment2_flow = segment_datagen.flow_from_directory(
+        test_path,
+        classes=["segments_2"],
+        class_mode=None,
+        color_mode="rgb",
+        target_size=target_size,
+        batch_size=1,
+        shuffle=False,
+        seed=seed,
+    )
+    return (image_flow, segment1_flow, segment2_flow), image_flow.filenames
 
 def train_generator(image_mask_pair_flow, image_color_model):
-    (img_flow, segment1_flows, segment2_flows, mask_flow) = image_mask_pair_flow
+    (img_flow, segment1_flow, segment2_flow, mask_flow) = image_mask_pair_flow
     for (img_batch, mask_batch) in zip(img_flow, mask_flow):
-        for segment1_set, segment2_set in zip(segment1_flows, segment2_flows):
-            for segment1_batch, segment2_batch in zip(segment1_set, segment2_set):
-                processed_img_array = preprocess_images_in_batch(
-                    img_batch, segment1_batch, segment2_batch, image_color_model
-                )
-                mask, mask_iris = preprocess_mask_input(mask_batch)
-                yield ([processed_img_array], [mask, mask_iris])
+        for segment1_batch, segment2_batch in zip(segment1_flow, segment2_flow):
+            processed_img_array = preprocess_images_in_batch(
+                img_batch, segment1_batch, segment2_batch, image_color_model
+            )
+            mask, mask_iris = preprocess_mask_input(mask_batch)
+            yield ([processed_img_array], [mask, mask_iris])
 
 
 
 def test_generator(test_flow, image_color_model):
-    (img_flow, segment1_flows, segment2_flows) = test_flow
-    for segment1_set, segment2_set in zip(segment1_flows, segment2_flows):
-        for segment1_batch, segment2_batch in zip(segment1_set, segment2_set):
-            for img_batch in img_flow:
-                processed_img_array = preprocess_images_in_batch(
-                    img_batch, segment1_batch, segment2_batch, image_color_model
-                )
-                yield [processed_img_array]
+    (img_flow, segment1_flow, segment2_flow) = test_flow
+    for segment1_batch, segment2_batch in zip(segment1_flow, segment2_flow):
+        for img_batch in img_flow:
+            processed_img_array = preprocess_images_in_batch(
+                img_batch, segment1_batch, segment2_batch, image_color_model
+            )
+            yield [processed_img_array]
 
 
 def save_result(
