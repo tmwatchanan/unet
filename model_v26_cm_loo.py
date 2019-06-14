@@ -1006,7 +1006,8 @@ def create(dataset, experiment_name_replacement):
     eye_v3_images_dir = os.path.join(eye_v3_dir, "images")
     eye_v3_segments_dir = os.path.join(eye_v3_dir, "segments")
     eye_v3_labels_dir = os.path.join(eye_v3_dir, "labels")
-    epoch_list = range(500, 5000+1, 100)
+    STEP_SIZE = 500
+    epoch_list = range(500, 5000+1, STEP_SIZE)
 
     filenames = next(os.walk(eye_v3_images_dir))[2]
     filenames = natsort.natsorted(filenames, reverse=False)

@@ -1006,7 +1006,8 @@ def create(dataset, experiment_name_replacement):
     eye_v3_images_dir = os.path.join(eye_v3_dir, "images")
     eye_v3_segments_dir = os.path.join(eye_v3_dir, "segments")
     eye_v3_labels_dir = os.path.join(eye_v3_dir, "labels")
-    epoch_list = range(500, 5000+1, 100)
+    STEP_SIZE = 100
+    epoch_list = range(500, 5000+1, STEP_SIZE)
 
     filenames = next(os.walk(eye_v3_images_dir))[2]
     filenames = natsort.natsorted(filenames, reverse=False)
@@ -1206,7 +1207,7 @@ def segments():
 @click.pass_context
 def last_n(ctx):
     statistics_evaluation = []
-    for fold in range(10, 13 + 1):
+    for fold in range(14, 16 + 1):
         DATASET_NAME = "eye_v3-s5"
         COLOR_MODEL = "hsv"  # rgb, hsv, ycbcr, gray
         MODEL_NAME = "model_v27_multiclass"
@@ -1290,7 +1291,7 @@ def last_n(ctx):
                 if input_epoch_index >= input_epoch_count:
                     # we need to break the loop by hand because the generator loops indefinitely
                     break
-            sys.stdout.flush()
+            print('')
         means = np.mean(val_accuracies, axis=1)
         sds = np.std(val_accuracies, axis=1)
         mins = np.min(val_accuracies, axis=1)
