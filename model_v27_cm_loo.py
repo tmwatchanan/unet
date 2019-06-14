@@ -591,6 +591,7 @@ def get_train_data(
     save_to_dir=None,
     target_size=(256, 256),
     seed=1,
+    shuffle=True
 ):
     image_aug_dict = copy.deepcopy(aug_dict)
     image_aug_dict["preprocessing_function"] = get_color_convertion_function(
@@ -611,6 +612,7 @@ def get_train_data(
         save_to_dir=save_to_dir,
         save_prefix=image_save_prefix,
         seed=seed,
+        shuffle=shuffle,
     )
     segment1_flow = segment_datagen.flow_from_directory(
         train_path,
@@ -622,6 +624,7 @@ def get_train_data(
         save_to_dir=save_to_dir,
         save_prefix=image_save_prefix,
         seed=seed,
+        shuffle=shuffle,
     )
     segment2_flow = segment_datagen.flow_from_directory(
         train_path,
@@ -633,6 +636,7 @@ def get_train_data(
         save_to_dir=save_to_dir,
         save_prefix=image_save_prefix,
         seed=seed,
+        shuffle=shuffle,
     )
     mask_flow = mask_datagen.flow_from_directory(
         train_path,
@@ -644,6 +648,7 @@ def get_train_data(
         save_to_dir=save_to_dir,
         save_prefix=mask_save_prefix,
         seed=seed,
+        shuffle=shuffle,
     )
     image_mask_pair_flow = (image_flow, segment1_flow, segment2_flow, mask_flow)
     return image_mask_pair_flow
@@ -693,26 +698,32 @@ def get_test_data(
     )
     return (image_flow, segment1_flow, segment2_flow), image_flow.filenames
 
+
 def train_generator(image_mask_pair_flow, image_color_model):
+    # count = 1
     (img_flow, segment1_flow, segment2_flow, mask_flow) = image_mask_pair_flow
-    for (img_batch, mask_batch) in zip(img_flow, mask_flow):
-        for segment1_batch, segment2_batch in zip(segment1_flow, segment2_flow):
-            processed_img_array = preprocess_images_in_batch(
-                img_batch, segment1_batch, segment2_batch, image_color_model
-            )
-            mask, mask_iris = preprocess_mask_input(mask_batch)
-            yield ([processed_img_array], [mask, mask_iris])
+    for (img_batch, segment1_batch, segment2_batch, mask_batch) in zip(img_flow, segment1_flow, segment2_flow, mask_flow):
+        # skimage.io.imsave(f"counts/img-count_{count}.jpg", skimage.color.hsv2rgb(img_batch[0, :, :, :]) / 255)
+        # skimage.io.imsave(f"counts/segment1-count_{count}.jpg", segment1_batch[0, :, :, :] / 255)
+        # skimage.io.imsave(f"counts/segment2-count_{count}.jpg", segment2_batch[0, :, :, :] / 255)
+        # print(f"count={count}")
+        # count += 1
+
+        processed_img_array = preprocess_images_in_batch(
+            img_batch, segment1_batch, segment2_batch, image_color_model
+        )
+        mask, mask_iris = preprocess_mask_input(mask_batch)
+        yield ([processed_img_array], [mask, mask_iris])
 
 
 
 def test_generator(test_flow, image_color_model):
     (img_flow, segment1_flow, segment2_flow) = test_flow
-    for segment1_batch, segment2_batch in zip(segment1_flow, segment2_flow):
-        for img_batch in img_flow:
-            processed_img_array = preprocess_images_in_batch(
-                img_batch, segment1_batch, segment2_batch, image_color_model
-            )
-            yield [processed_img_array]
+    for img_batch, segment1_batch, segment2_batch in zip(img_flow, segment1_flow, segment2_flow):
+        processed_img_array = preprocess_images_in_batch(
+            img_batch, segment1_batch, segment2_batch, image_color_model
+        )
+        yield [processed_img_array]
 
 
 def save_result(
@@ -1194,11 +1205,12 @@ def segments():
 @cli.command()
 @click.pass_context
 def last_n(ctx):
-    for loo in range(1, 16 + 1):
+    statistics_evaluation = []
+    for fold in range(10, 13 + 1):
         DATASET_NAME = "eye_v3-s5"
         COLOR_MODEL = "hsv"  # rgb, hsv, ycbcr, gray
         MODEL_NAME = "model_v27_multiclass"
-        MODEL_INFO = f"softmax-cce-lw_1_0.01-{COLOR_MODEL}-loo_{loo}"
+        MODEL_INFO = f"softmax-cce-lw_1_0.01-{COLOR_MODEL}-loo_{fold}"
         BATCH_NORMALIZATION = True
         LEARNING_RATE = "1e_2"
         EXPERIMENT_NAME = (
@@ -1212,20 +1224,24 @@ def last_n(ctx):
         INPUT_EPOCH_END = 5000
         STEP_SIZE = 100
         BATCH_SIZE = 1
-        STEPS_PER_EPOCH = 2  # None
         INPUT_SIZE = (256, 256, 3 + 6)  # 6 comes from the 1-pass segments
         TARGET_SIZE = (256, 256)
         NUM_CLASSES = 3
 
-        dataset_path = os.path.join("data", EXPERIMENT_NAME)
-        weights_dir = os.path.join(dataset_path, "weights")
-        validation_set_dir = os.path.join(dataset_path, "validation")
+        data_path = "data"
+        experiment_dir = os.path.join(data_path, EXPERIMENT_NAME)
+        weights_dir = os.path.join(experiment_dir, "weights")
+        validation_set_dir = os.path.join(experiment_dir, "validation")
         validation_images_set_dir = os.path.join(validation_set_dir, "images")
-        validation_labels_set_dir = os.path.join(validation_set_dir, "labels")
-        last_n_file = os.path.join(dataset_path, "last_n.csv")
+        comparison_dir = os.path.join(data_path, "comparison")
+        last_n_file = os.path.join(comparison_dir, "model_v27-last_n.csv")
 
-        for epoch in range(MODEL_EPOCH_START, MODEL_EPOCH_END, STEP_SIZE):
+        input_epoch_count = len(range(INPUT_EPOCH_START, INPUT_EPOCH_END + 1, STEP_SIZE))
+        print(f"input_epoch_count={input_epoch_count}")
 
+        val_accuracies = np.empty([input_epoch_count, 11])
+
+        for model_epoch_index, epoch in enumerate(range(MODEL_EPOCH_START, MODEL_EPOCH_END+1, STEP_SIZE)):
             trained_weights_file = f"{epoch:08d}.hdf5"
             trained_weights_file = os.path.join(weights_dir, trained_weights_file)
 
@@ -1252,29 +1268,57 @@ def last_n(ctx):
                 mask_color=COLOR_MODEL,
                 save_to_dir=None,
                 target_size=TARGET_SIZE,
+                shuffle=False
             )
             validation_flow = get_train_data(**validation_data_dict)
             validation_gen = train_generator(validation_flow, COLOR_MODEL)
 
-            for (image_batch, mask_batch) in validation_gen:
-                pass
-            total = sum(1 for _ in validation_gen)
-            print("total", total)
+            input_epoch_index = 0
+            for (image_batch,), (mask_batch, mask_iris_batch) in validation_gen:
+                print(f"fold={fold}, epoch={epoch}, input_epoch={input_epoch_index+1}/{input_epoch_count}", end='\r')
+                evaluation = model.evaluate(
+                    x=image_batch,
+                    y=[mask_batch, mask_iris_batch],
+                    batch_size=None,
+                    steps=1,
+                    verbose=0
+                )
+                # print(model.metrics_names)
+                # [3] = 'output1_acc
+                val_accuracies[input_epoch_index, model_epoch_index] = evaluation[3]
+                input_epoch_index += 1
+                if input_epoch_index >= input_epoch_count:
+                    # we need to break the loop by hand because the generator loops indefinitely
+                    break
+            sys.stdout.flush()
+        means = np.mean(val_accuracies, axis=1)
+        sds = np.std(val_accuracies, axis=1)
+        mins = np.min(val_accuracies, axis=1)
+        maxs = np.max(val_accuracies, axis=1)
 
-            # for (image_batch,), (mask_batch, mask_iris_batch) in validation_gen:
-            #     for image in image_batch:
-            #         print(count)
-            #         count += 1
+        def format_sd(number):
+            return format(number, "3.4f")
+        def format_accuracy(number):
+            return format(number * 100, "3.2f")
 
-            history = model.evaluate_generator(
-                validation_gen,
-                steps=STEPS_PER_EPOCH,
-                workers=0,
-                use_multiprocessing=True
-            )
-            print(history)
-
-
+        means = [format_accuracy(i) for i in means]
+        sds = [format_sd(i) for i in sds]
+        mins = [format_accuracy(i) for i in mins]
+        maxs = [format_accuracy(i) for i in maxs]
+        statistics = np.array([means, sds, mins, maxs])
+        statistics = np.transpose(statistics)
+        for stat in statistics:
+            statistics_evaluation.append(stat)
+    with open(last_n_file, mode="w") as csv_f:
+        csv_writer = csv.writer(
+            csv_f, delimiter="\t", quotechar='"', quoting=csv.QUOTE_MINIMAL
+        )
+        # prepare data
+        header_list = ["average", "sd", "min", "max"]
+        # write data to file
+        csv_writer.writerow(header_list)
+        for stat in statistics_evaluation:
+            csv_writer.writerow(stat)
 
 if __name__ == "__main__":
     cli()
