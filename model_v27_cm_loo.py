@@ -1260,9 +1260,10 @@ def last_n(ctx):
         validation_flow = get_train_data(**validation_data_dict)
         validation_gen = train_generator(validation_flow, COLOR_MODEL)
 
-        val_accuracies = np.empty([input_epoch_count, 11]) # 11 epochs = 4000–5000
+        model_epoch_list = range(MODEL_EPOCH_START, MODEL_EPOCH_END+1, MODEL_STEP_SIZE)
+        val_accuracies = np.empty([input_epoch_count, len(model_epoch_list)]) # 11 epochs = 4000–5000
 
-        for model_epoch_index, epoch in enumerate(range(MODEL_EPOCH_START, MODEL_EPOCH_END+1, MODEL_STEP_SIZE)):
+        for model_epoch_index, epoch in enumerate(model_epoch_list):
             trained_weights_file = f"{epoch:08d}.hdf5"
             trained_weights_file = os.path.join(weights_dir, trained_weights_file)
 
@@ -1279,8 +1280,9 @@ def last_n(ctx):
 
 
             input_epoch_index = 0
+            start_time = time.time()
             for (image_batch,), (mask_batch, mask_iris_batch) in validation_gen:
-                print(f"fold={fold}, epoch={epoch}, input_epoch={input_epoch_index+1}/{input_epoch_count}", end='\r')
+                verbose_string = f"fold={fold}, epoch={epoch}, input_epoch={input_epoch_index+1}/{input_epoch_count}"
                 evaluation = model.evaluate(
                     x=image_batch,
                     y=[mask_batch, mask_iris_batch],
@@ -1294,8 +1296,13 @@ def last_n(ctx):
                 input_epoch_index += 1
                 if input_epoch_index >= input_epoch_count:
                     # we need to break the loop by hand because the generator loops indefinitely
+                    print(verbose_string, end=', ')
                     break
-            print('')
+                else:
+                    print(verbose_string, end='\r')
+            end_time = time.time()
+            elapsed_time = end_time - start_time
+            print(f"elapsed time = {elapsed_time:3.2f} seconds")
         means = np.mean(val_accuracies, axis=1)
         sds = np.std(val_accuracies, axis=1)
         mins = np.min(val_accuracies, axis=1)
