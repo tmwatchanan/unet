@@ -198,7 +198,7 @@ def train(ctx):
         cprint("> ", end="")
         cprint("`train`", color="green", end="")
         cprint(" function")
-        DATASET_NAME = "eye_v3-s5"
+        DATASET_NAME = "eye_v3-s7"
         COLOR_MODEL = "hsv"  # rgb, hsv, ycbcr, gray
         MODEL_NAME = "model_v27_multiclass"
         MODEL_INFO = f"softmax-cce-lw_1_0.01-{COLOR_MODEL}-loo_{loo}"
@@ -1206,9 +1206,10 @@ def segments():
 @cli.command()
 @click.pass_context
 def last_n(ctx):
+    last_n_csv_filename = "eye_v3-s6-model_v27_multiclass-softmax-cce-lw_1_0.01-hsv-loo_5-lr_1e_2-bn-epoch_4000_5000-every_1.csv"
     statistics_evaluation = []
-    for fold in range(14, 16 + 1):
-        DATASET_NAME = "eye_v3-s5"
+    for fold in range(5, 5 + 1):
+        DATASET_NAME = "eye_v3-s6"
         COLOR_MODEL = "hsv"  # rgb, hsv, ycbcr, gray
         MODEL_NAME = "model_v27_multiclass"
         MODEL_INFO = f"softmax-cce-lw_1_0.01-{COLOR_MODEL}-loo_{fold}"
@@ -1218,12 +1219,12 @@ def last_n(ctx):
             f"{DATASET_NAME}-{MODEL_NAME}-{MODEL_INFO}-lr_{LEARNING_RATE}"
             + ("-bn" if BATCH_NORMALIZATION else "")
         )
-        TEST_DIR_NAME = "test"
         MODEL_EPOCH_START = 4000
         MODEL_EPOCH_END = 5000
+        MODEL_STEP_SIZE = 1
         INPUT_EPOCH_START = 500
         INPUT_EPOCH_END = 5000
-        STEP_SIZE = 100
+        INPUT_STEP_SIZE = 100
         BATCH_SIZE = 1
         INPUT_SIZE = (256, 256, 3 + 6)  # 6 comes from the 1-pass segments
         TARGET_SIZE = (256, 256)
@@ -1235,14 +1236,14 @@ def last_n(ctx):
         validation_set_dir = os.path.join(experiment_dir, "validation")
         validation_images_set_dir = os.path.join(validation_set_dir, "images")
         comparison_dir = os.path.join(data_path, "comparison")
-        last_n_file = os.path.join(comparison_dir, "model_v27-last_n.csv")
+        last_n_file = os.path.join(comparison_dir, last_n_csv_filename)
 
-        input_epoch_count = len(range(INPUT_EPOCH_START, INPUT_EPOCH_END + 1, STEP_SIZE))
+        input_epoch_count = len(range(INPUT_EPOCH_START, INPUT_EPOCH_END + 1, INPUT_STEP_SIZE))
         print(f"input_epoch_count={input_epoch_count}")
 
-        val_accuracies = np.empty([input_epoch_count, 11])
+        val_accuracies = np.empty([input_epoch_count, 11]) # 11 epochs = 4000–5000
 
-        for model_epoch_index, epoch in enumerate(range(MODEL_EPOCH_START, MODEL_EPOCH_END+1, STEP_SIZE)):
+        for model_epoch_index, epoch in enumerate(range(MODEL_EPOCH_START, MODEL_EPOCH_END+1, MODEL_STEP_SIZE)):
             trained_weights_file = f"{epoch:08d}.hdf5"
             trained_weights_file = os.path.join(weights_dir, trained_weights_file)
 
