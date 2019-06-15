@@ -1207,50 +1207,64 @@ def segments():
 @click.pass_context
 def last_n(ctx):
     last_n_csv_filename = "eye_v3-s6-model_v27_multiclass-softmax-cce-lw_1_0.01-hsv-loo_5-lr_1e_2-bn-epoch_4000_5000-every_1.csv"
+
+    DATASET_NAME = "eye_v3-s6"
+    COLOR_MODEL = "hsv"  # rgb, hsv, ycbcr, gray
+    MODEL_NAME = "model_v27_multiclass"
+    BATCH_NORMALIZATION = True
+    LEARNING_RATE = "1e_2"
+    MODEL_EPOCH_START = 4000
+    MODEL_EPOCH_END = 5000
+    MODEL_STEP_SIZE = 1
+    INPUT_EPOCH_START = 500
+    INPUT_EPOCH_END = 5000
+    INPUT_STEP_SIZE = 100
+    BATCH_SIZE = 1
+    INPUT_SIZE = (256, 256, 3 + 6)  # 6 comes from the 1-pass segments
+    TARGET_SIZE = (256, 256)
+    NUM_CLASSES = 3
+
+    data_path = "data"
+    comparison_dir = os.path.join(data_path, "comparison")
+    last_n_file = os.path.join(comparison_dir, last_n_csv_filename)
+
+    input_epoch_count = len(range(INPUT_EPOCH_START, INPUT_EPOCH_END + 1, INPUT_STEP_SIZE))
+    print(f"input_epoch_count={input_epoch_count}")
+
     statistics_evaluation = []
     for fold in range(5, 5 + 1):
-        DATASET_NAME = "eye_v3-s6"
-        COLOR_MODEL = "hsv"  # rgb, hsv, ycbcr, gray
-        MODEL_NAME = "model_v27_multiclass"
         MODEL_INFO = f"softmax-cce-lw_1_0.01-{COLOR_MODEL}-loo_{fold}"
-        BATCH_NORMALIZATION = True
-        LEARNING_RATE = "1e_2"
         EXPERIMENT_NAME = (
             f"{DATASET_NAME}-{MODEL_NAME}-{MODEL_INFO}-lr_{LEARNING_RATE}"
             + ("-bn" if BATCH_NORMALIZATION else "")
         )
-        MODEL_EPOCH_START = 4000
-        MODEL_EPOCH_END = 5000
-        MODEL_STEP_SIZE = 1
-        INPUT_EPOCH_START = 500
-        INPUT_EPOCH_END = 5000
-        INPUT_STEP_SIZE = 100
-        BATCH_SIZE = 1
-        INPUT_SIZE = (256, 256, 3 + 6)  # 6 comes from the 1-pass segments
-        TARGET_SIZE = (256, 256)
-        NUM_CLASSES = 3
-
-        data_path = "data"
         experiment_dir = os.path.join(data_path, EXPERIMENT_NAME)
         weights_dir = os.path.join(experiment_dir, "weights")
         validation_set_dir = os.path.join(experiment_dir, "validation")
         validation_images_set_dir = os.path.join(validation_set_dir, "images")
-        comparison_dir = os.path.join(data_path, "comparison")
-        last_n_file = os.path.join(comparison_dir, last_n_csv_filename)
 
-        input_epoch_count = len(range(INPUT_EPOCH_START, INPUT_EPOCH_END + 1, INPUT_STEP_SIZE))
-        print(f"input_epoch_count={input_epoch_count}")
+        num_validation = 0
+        for _, _, files in os.walk(validation_images_set_dir):
+            num_validation += len(files)
+        print(f"num_validation={num_validation}")
+
+        validation_data_dict = dict(
+            batch_size=BATCH_SIZE,
+            train_path=validation_set_dir,
+            image_color=COLOR_MODEL,
+            mask_color=COLOR_MODEL,
+            save_to_dir=None,
+            target_size=TARGET_SIZE,
+            shuffle=False
+        )
+        validation_flow = get_train_data(**validation_data_dict)
+        validation_gen = train_generator(validation_flow, COLOR_MODEL)
 
         val_accuracies = np.empty([input_epoch_count, 11]) # 11 epochs = 4000–5000
 
         for model_epoch_index, epoch in enumerate(range(MODEL_EPOCH_START, MODEL_EPOCH_END+1, MODEL_STEP_SIZE)):
             trained_weights_file = f"{epoch:08d}.hdf5"
             trained_weights_file = os.path.join(weights_dir, trained_weights_file)
-
-            num_validation = 0
-            for _, _, files in os.walk(validation_images_set_dir):
-                num_validation += len(files)
-            print(f"num_validation={num_validation}")
 
             learning_rate = float(LEARNING_RATE.replace("_", "-"))
 
@@ -1263,17 +1277,6 @@ def last_n(ctx):
                 is_summary=False,
             )  # load pretrained model
 
-            validation_data_dict = dict(
-                batch_size=BATCH_SIZE,
-                train_path=validation_set_dir,
-                image_color=COLOR_MODEL,
-                mask_color=COLOR_MODEL,
-                save_to_dir=None,
-                target_size=TARGET_SIZE,
-                shuffle=False
-            )
-            validation_flow = get_train_data(**validation_data_dict)
-            validation_gen = train_generator(validation_flow, COLOR_MODEL)
 
             input_epoch_index = 0
             for (image_batch,), (mask_batch, mask_iris_batch) in validation_gen:
