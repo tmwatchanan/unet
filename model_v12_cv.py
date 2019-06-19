@@ -19,6 +19,7 @@ import numpy as np
 import pandas as pd
 import six
 import skimage
+from sklearn import metrics
 from scipy import ndimage
 import tensorflow as tf
 from keras import backend as K
@@ -883,7 +884,6 @@ def predict(experiment_name, weight, test_dir_name, batch_normalization):
 @click.pass_context
 def evaluate(ctx):
     evaluation_csv_filename = "eye_v4-model_v12_multiclass-softmax-cce-lw_1_0-hsv-fold_1_4-lr_1e_2-bn-test.csv"
-
     DATASET_NAME = "eye_v4"
     COLOR_MODEL = "hsv"  # rgb, hsv, ycbcr, gray
     MODEL_NAME = "model_v12_multiclass"
@@ -901,6 +901,7 @@ def evaluate(ctx):
     evaluation_csv_file = os.path.join(evaluation_dir, evaluation_csv_filename)
 
     statistics_evaluation = []
+    folds_metrics = []
     for (fold, epoch) in zip(range(1, 4 + 1), MODEL_EPOCH_LIST):
         MODEL_INFO = f"softmax-cce-lw_1_0-{COLOR_MODEL}-fold_{fold}"
         EXPERIMENT_NAME = (
@@ -927,7 +928,6 @@ def evaluate(ctx):
             shuffle=False,
         )
         test_flow = get_train_data(**test_data_dict)
-        test_gen = train_generator(test_flow, COLOR_MODEL)
 
         trained_weights_file = f"{epoch:08d}.hdf5"
         trained_weights_file = os.path.join(weights_dir, trained_weights_file)
@@ -943,14 +943,57 @@ def evaluate(ctx):
             is_summary=False,
         )  # load pretrained model
 
+        test_gen = train_generator(test_flow, COLOR_MODEL)
+        groundtruths = []
+        step = 0
+        for (_,), (mask_batch, _) in test_gen:
+            for mask in mask_batch:
+                groundtruths.append(mask)
+            step += 1
+            if step >= 2:
+                break
+        predicted_results = model.predict_generator(
+            generator=test_gen, steps=EVALUATE_STEPS, verbose=1
+        )
+
+        batch_metrics = evaluate_classes(
+            predicted_results[0], groundtruths
+        )  # [0] images, [1] masks
+        batch_metrics_array = np.array(batch_metrics)
+        if folds_metrics == []:
+            folds_metrics = batch_metrics_array
+        else:
+            folds_metrics = np.concatenate((folds_metrics, batch_metrics_array))
+
+        test_gen = train_generator(test_flow, COLOR_MODEL)
         evaluation = model.evaluate_generator(
-            generator=test_gen,
-            steps=EVALUATE_STEPS,
-            verbose=1,
+            generator=test_gen, steps=EVALUATE_STEPS, verbose=1
         )
         # print(model.metrics_names) # [3] output1_acc
         print(evaluation)
         statistics_evaluation.append(format_accuracy(evaluation[3]))
+
+    average_iris_precision = np.mean(folds_metrics[:, 0, 0], axis=0)
+    average_iris_recall = np.mean(folds_metrics[:, 0, 1], axis=0)
+    average_iris_f1 = np.mean(folds_metrics[:, 0, 2], axis=0)
+    average_sclera_precision = np.mean(folds_metrics[:, 1, 0], axis=0)
+    average_sclera_recall = np.mean(folds_metrics[:, 1, 1], axis=0)
+    average_sclera_f1 = np.mean(folds_metrics[:, 1, 2], axis=0)
+    average_bg_precision = np.mean(folds_metrics[:, 2, 0], axis=0)
+    average_bg_recall = np.mean(folds_metrics[:, 2, 1], axis=0)
+    average_bg_f1 = np.mean(folds_metrics[:, 2, 2], axis=0)
+
+    average_metrics = [
+        average_iris_precision,
+        average_iris_recall,
+        average_iris_f1,
+        average_sclera_precision,
+        average_sclera_recall,
+        average_sclera_f1,
+        average_bg_precision,
+        average_bg_recall,
+        average_bg_f1,
+    ]
 
     with open(evaluation_csv_file, mode="w") as csv_f:
         csv_writer = csv.writer(
@@ -961,10 +1004,52 @@ def evaluate(ctx):
         # write data to file
         csv_writer.writerow(header_list)
         csv_writer.writerow(statistics_evaluation)
+        csv_writer.writerow(average_metrics)
+
+
+def evaluate_classes(images, groundtruths):
+    batch_metrics = []
+    for image, label in zip(images, groundtruths):
+        if image.shape != label.shape:
+            print("Image's shape doesn't match with label's shape")
+            exit(1)
+        for x in range(0, image.shape[0]):
+            for y in range(0, image.shape[1]):
+                predicted_class = np.argmax(image[x, y])
+                image[x, y, :] = 0
+                image[x, y, predicted_class] = 1
+
+                predicted_class = np.argmax(label[x, y])
+                label[x, y, :] = 0
+                label[x, y, predicted_class] = 1
+
+        def extract_class_layers(image):
+            iris = image[:, :, 0]
+            sclera = image[:, :, 1]
+            bg = image[:, :, 2]
+            return iris, sclera, bg
+
+        iris_image, sclera_image, bg_image = extract_class_layers(image)
+        iris_label, sclera_label, bg_label = extract_class_layers(label)
+
+        def compute_metrics(label, image):
+            flattened_label = label.flatten()
+            flattened_image = image.flatten()
+            precision = metrics.precision_score(flattened_label, flattened_image)
+            recall = metrics.recall_score(flattened_label, flattened_image)
+            f1 = metrics.f1_score(flattened_label, flattened_image)
+            return precision, recall, f1
+
+        iris_metrics = compute_metrics(iris_label, iris_image)
+        sclera_metrics = compute_metrics(sclera_label, sclera_image)
+        bg_metrics = compute_metrics(bg_label, bg_image)
+        batch_metrics.append([iris_metrics, sclera_metrics, bg_metrics])
+    return batch_metrics
 
 
 def format_accuracy(number):
     return format(number * 100, "3.2f")
+
 
 if __name__ == "__main__":
     cli()
