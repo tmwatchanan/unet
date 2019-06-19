@@ -781,8 +781,8 @@ def plot(experiment_name):
 @click.argument("weight")
 @click.argument("test_dir_name")
 @click.argument("batch_normalization")
-def test(experiment_name, weight, test_dir_name, batch_normalization):
-    cprint(f"> Running `test` command on ", color="green", end="")
+def predict(experiment_name, weight, test_dir_name, batch_normalization):
+    cprint(f"> Running `predict` command on ", color="green", end="")
     cprint(f"{experiment_name}", color="green", attrs=["bold"], end=", ")
     cprint(f"{batch_normalization}", color="grey", attrs=["bold"], end=", ")
     cprint(f" experiment", color="green")
@@ -878,6 +878,93 @@ def test(experiment_name, weight, test_dir_name, batch_normalization):
     )
     cprint(f"{predicted_set_dirname}", color="green", attrs=["bold"])
 
+
+@cli.command()
+@click.pass_context
+def evaluate(ctx):
+    evaluation_csv_filename = "eye_v4-model_v12_multiclass-softmax-cce-lw_1_0-hsv-fold_1_4-lr_1e_2-bn-test.csv"
+
+    DATASET_NAME = "eye_v4"
+    COLOR_MODEL = "hsv"  # rgb, hsv, ycbcr, gray
+    MODEL_NAME = "model_v12_multiclass"
+    BATCH_NORMALIZATION = True
+    LEARNING_RATE = "1e_2"
+    MODEL_EPOCH_LIST = [4991, 3974, 4853, 4345]
+    BATCH_SIZE = 4
+    EVALUATE_STEPS = 2
+    INPUT_SIZE = (256, 256, 3)
+    TARGET_SIZE = (256, 256)
+    NUM_CLASSES = 3
+
+    data_path = "data"
+    evaluation_dir = os.path.join(data_path, "evaluation")
+    evaluation_csv_file = os.path.join(evaluation_dir, evaluation_csv_filename)
+
+    statistics_evaluation = []
+    for (fold, epoch) in zip(range(1, 4 + 1), MODEL_EPOCH_LIST):
+        MODEL_INFO = f"softmax-cce-lw_1_0-{COLOR_MODEL}-fold_{fold}"
+        EXPERIMENT_NAME = (
+            f"{DATASET_NAME}-{MODEL_NAME}-{MODEL_INFO}-lr_{LEARNING_RATE}"
+            + ("-bn" if BATCH_NORMALIZATION else "")
+        )
+        experiment_dir = os.path.join(data_path, EXPERIMENT_NAME)
+        weights_dir = os.path.join(experiment_dir, "weights")
+        test_set_dir = os.path.join(experiment_dir, "test")
+        test_set_images_dir = os.path.join(test_set_dir, "images")
+
+        num_test = 0
+        for _, _, files in os.walk(test_set_images_dir):
+            num_test += len(files)
+        print(f"num_test={num_test}")
+
+        test_data_dict = dict(
+            batch_size=BATCH_SIZE,
+            train_path=test_set_dir,
+            image_color=COLOR_MODEL,
+            mask_color=COLOR_MODEL,
+            save_to_dir=None,
+            target_size=TARGET_SIZE,
+            shuffle=False,
+        )
+        test_flow = get_train_data(**test_data_dict)
+        test_gen = train_generator(test_flow, COLOR_MODEL)
+
+        trained_weights_file = f"{epoch:08d}.hdf5"
+        trained_weights_file = os.path.join(weights_dir, trained_weights_file)
+
+        learning_rate = float(LEARNING_RATE.replace("_", "-"))
+
+        model = create_model(
+            pretrained_weights=trained_weights_file,
+            input_size=INPUT_SIZE,
+            num_classes=NUM_CLASSES,
+            learning_rate=learning_rate,
+            batch_normalization=BATCH_NORMALIZATION,
+            is_summary=False,
+        )  # load pretrained model
+
+        evaluation = model.evaluate_generator(
+            generator=test_gen,
+            steps=EVALUATE_STEPS,
+            verbose=1,
+        )
+        # print(model.metrics_names) # [3] output1_acc
+        print(evaluation)
+        statistics_evaluation.append(format_accuracy(evaluation[3]))
+
+    with open(evaluation_csv_file, mode="w") as csv_f:
+        csv_writer = csv.writer(
+            csv_f, delimiter="\t", quotechar='"', quoting=csv.QUOTE_MINIMAL
+        )
+        # prepare data
+        header_list = ["test"]
+        # write data to file
+        csv_writer.writerow(header_list)
+        csv_writer.writerow(statistics_evaluation)
+
+
+def format_accuracy(number):
+    return format(number * 100, "3.2f")
 
 if __name__ == "__main__":
     cli()
