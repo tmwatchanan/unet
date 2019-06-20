@@ -527,10 +527,9 @@ def preprocess_image_input(img, color_model):
     # add sobel feature layers
     processed_img = add_sobel_filters(img, color_model, processed_img)
 
+    # normalize the values of gradient x and y
     gradients = processed_img[:,:, 3:5]
     max_absolute_gradient_value = max(gradients.min(), gradients.max(), key=abs)
-
-    # normalize the values of gradient x and y
     processed_img[:, :, 3:5] /= max_absolute_gradient_value
 
     # normalize the values of image to be in range [0, 1]
