@@ -884,8 +884,9 @@ def predict(experiment_name, weight, test_dir_name, batch_normalization):
 @click.pass_context
 def evaluate(ctx):
     DATASET_NAME = "eye_v4"
-    COLOR_MODEL = "hsv"  # rgb, hsv, ycbcr, gray
     MODEL_NAME = "model_v12_multiclass"
+    MODEL_INFO = "softmax-cce-lw_1_0"
+    COLOR_MODEL = "rgb"  # rgb, hsv, ycbcr, gray
     BATCH_NORMALIZATION = True
     LEARNING_RATE = "1e_2"
     BATCH_SIZE = 4
@@ -894,14 +895,15 @@ def evaluate(ctx):
     TARGET_SIZE = (256, 256)
     NUM_CLASSES = 3
     fold_list = range(1, 4+1)
+    batch_normalization_info = ("-bn" if BATCH_NORMALIZATION else "")
     experiment_name_template = (
-        "eye_v4-model_v12_multiclass-softmax-cce-lw_1_0-" + COLOR_MODEL + "-fold_{0}-lr_1e_2-bn"
+        DATASET_NAME + "-" + MODEL_NAME + "-" + MODEL_INFO + "-" + COLOR_MODEL + "-fold_{0}" + "-lr_" + LEARNING_RATE + batch_normalization_info
     )
-    training_validation_evaluation = evaluate_training_and_validation(experiment_name_template)
+    training_validation_evaluation = evaluate_training_and_validation(experiment_name_template, fold_list)
 
     data_path = "data"
     evaluation_dir = os.path.join(data_path, "evaluation")
-    evaluation_csv_filename = experiment_name_template.format('1_4') + ".csv"
+    evaluation_csv_filename = experiment_name_template.format(f"{fold_list[0]}-{fold_list[-1]}") + ".csv"
     evaluation_csv_file = os.path.join(evaluation_dir, evaluation_csv_filename)
 
     output_summary_evaluation = []
@@ -914,12 +916,8 @@ def evaluate(ctx):
         }
     model_epoch_list = [fold_evaluation['epoch'] for fold_evaluation in training_validation_evaluation]
     for (fold, epoch) in zip(fold_list, model_epoch_list):
-        MODEL_INFO = f"softmax-cce-lw_1_0-{COLOR_MODEL}-fold_{fold}"
-        EXPERIMENT_NAME = (
-            f"{DATASET_NAME}-{MODEL_NAME}-{MODEL_INFO}-lr_{LEARNING_RATE}"
-            + ("-bn" if BATCH_NORMALIZATION else "")
-        )
-        experiment_dir = os.path.join(data_path, EXPERIMENT_NAME)
+        experiment_name = experiment_name_template.format(fold)
+        experiment_dir = os.path.join(data_path, experiment_name)
         weights_dir = os.path.join(experiment_dir, "weights")
         test_set_dir = os.path.join(experiment_dir, "test")
         test_set_images_dir = os.path.join(test_set_dir, "images")
@@ -1005,14 +1003,15 @@ def evaluate(ctx):
             csv_f, delimiter="\t", quotechar='"', quoting=csv.QUOTE_MINIMAL
         )
         csv_writer.writerow(output_summary_evaluation)
+    cprint(f"> evaluate succesfully, wrote file at ", end="")
+    cprint(f"{evaluation_csv_file}", color="green", attrs=["bold"], end=".")
 
 
-def evaluate_training_and_validation(experiment_name_template):
+def evaluate_training_and_validation(experiment_name_template, fold_list):
     data_dir = "data"
 
-    fold = 1
     output_values = []
-    for fold in range(1, 4 + 1):
+    for fold in fold_list:
         experiment_name = experiment_name_template.format(fold)
         experiment_name_dir = os.path.join(data_dir, experiment_name)
         training_log_file = os.path.join(experiment_name_dir, "training.csv")
