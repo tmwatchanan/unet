@@ -649,6 +649,7 @@ def save_result(
     target_size=(256, 256),
     num_class=3,
     save_each_layer=False,
+    save_iris=False,
 ):
     for ol in range(len(npyfile)):
         layer_output = npyfile[ol]
@@ -687,7 +688,7 @@ def save_result(
                             ),
                             item[:, :, 2],
                         )
-            elif ol == 1:
+            elif ol == 1 and save_iris:
                 item = np.reshape(item, target_size)
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
@@ -787,21 +788,18 @@ def plot(experiment_name):
 @cli.command()
 @click.argument("experiment_name")
 @click.argument("weight")
-@click.argument("test_dir_name")
+@click.argument("color_model")
 @click.argument("batch_normalization")
-def test(experiment_name, weight, test_dir_name, batch_normalization):
-    cprint(f"> Running `test` command on ", color="green", end="")
+@click.argument("test_dir_name")
+def predict(experiment_name, weight, color_model, batch_normalization, test_dir_name):
+    cprint(f"> Running `predict` command on ", color="green", end="")
     cprint(f"{experiment_name}", color="green", attrs=["bold"], end=", ")
-    cprint(f"{batch_normalization}", color="grey", attrs=["bold"], end=", ")
+    cprint(f"{color_model}", color="green", attrs=["bold"], end=", ")
+    cprint(f"batch_normalization" if batch_normalization else "", color="grey", attrs=["bold"], end=", ")
     cprint(f" experiment", color="green")
-    #  experiment_name = "eye_v2-baseline_v8_multiclass-softmax-cce-lw_8421-lr_1e_3"
-    #  weight = "98800"
-    #  test_dir_name = 'blind_conj'
-    BATCH_SIZE = 6  # 10
-    INPUT_SIZE = (256, 256, 3)
+    INPUT_SIZE = (256, 256, 5)
     TARGET_SIZE = (256, 256)
     NUM_CLASSES = 3
-    COLOR_MODEL = "hsv"  # rgb, hsv, ycbcr, gray
     SAVE_EACH_LAYER = False
     PREDICT_VERBOSE = 1  # 0 = silent, 1
 
@@ -810,14 +808,6 @@ def test(experiment_name, weight, test_dir_name, batch_normalization):
     cprint(f" will be used to predict the images in ", color="green", end="")
     cprint(f"{test_dir_name}", color="green", attrs=["bold"], end="")
     cprint(f" directory", color="green")
-
-    if BATCH_SIZE > 10:
-        answer = input(
-            f"Do you want to continue using BATCH_SIZE={BATCH_SIZE} [y/n] : "
-        )
-        if not answer or answer[0].lower() != "y":
-            print("You can change the value of BATCH_SIZE in this file")
-            exit(1)
 
     dataset_path = os.path.join("data", experiment_name)
     weights_dir = os.path.join(dataset_path, "weights")
@@ -831,18 +821,16 @@ def test(experiment_name, weight, test_dir_name, batch_normalization):
 
     def save_prediction_settings_file():
         with open(prediction_setting_file, "w") as f:
-            current_datetime = datetime.datetime.now().strftime(
-                "%Y-%m-%eye_v3_segments_dir %H:%M:%S"
-            )
+            current_datetime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             f.write(f"{current_datetime}\n")
             f.write(f"experiment_name={experiment_name}\n")
             f.write(f"test_dir_name={test_dir_name}\n")
             f.write(f"weight={weight}\n")
-            f.write(f"BATCH_SIZE={BATCH_SIZE}\n")
+            f.write(f"BATCH_SIZE=1\n")
             f.write(f"INPUT_SIZE={INPUT_SIZE}\n")
             f.write(f"TARGET_SIZE={TARGET_SIZE}\n")
             f.write(f"NUM_CLASSES={NUM_CLASSES}\n")
-            f.write(f"COLOR_MODEL={COLOR_MODEL}\n")
+            f.write(f"COLOR_MODEL={color_model}\n")
             f.write(f"SAVE_EACH_LAYER={SAVE_EACH_LAYER}\n")
             f.write(f"=======================\n")
 
@@ -857,18 +845,21 @@ def test(experiment_name, weight, test_dir_name, batch_normalization):
         input_size=INPUT_SIZE,
         num_classes=NUM_CLASSES,
         batch_normalization=batch_normalization,
+        is_summary=False
     )
 
     # test the model
     test_data_dict = dict(
-        test_path=test_set_dir, target_size=TARGET_SIZE, image_color=COLOR_MODEL
+        test_path=test_set_dir,
+        target_size=TARGET_SIZE,
+        image_color=color_model,
     )
     test_flow, test_files = get_test_data(**test_data_dict)
-    test_gen = test_generator(test_flow, COLOR_MODEL)
-    num_test_files = len(test_files)
+    test_gen = test_generator(test_flow, color_model)
 
+    predict_steps = len(test_files)
     results = model.predict_generator(
-        test_gen, steps=num_test_files, verbose=PREDICT_VERBOSE
+        test_gen, steps=predict_steps, verbose=PREDICT_VERBOSE
     )
     save_result(
         predicted_set_dir,
@@ -921,6 +912,7 @@ def evaluate(ctx):
             'image': np.empty(0)
         }
     model_epoch_list = [fold_evaluation['epoch'] for fold_evaluation in training_validation_evaluation]
+    print("Best epoch = ", model_epoch_list)
     for (fold, epoch) in zip(fold_list, model_epoch_list):
         experiment_name = experiment_name_template.format(fold)
         experiment_dir = os.path.join(data_path, experiment_name)
