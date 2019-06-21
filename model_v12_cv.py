@@ -788,7 +788,7 @@ def predict(experiment_name, weight, color_model, batch_normalization, test_dir_
     cprint(f"> Running `predict` command on ", color="green", end="")
     cprint(f"{experiment_name}", color="green", attrs=["bold"], end=", ")
     cprint(f"{color_model}", color="green", attrs=["bold"], end=", ")
-    cprint(f"{batch_normalization}" if batch_normalization else "", color="grey", attrs=["bold"], end=", ")
+    cprint(f"batch_normalization" if batch_normalization else "", color="grey", attrs=["bold"], end=", ")
     cprint(f" experiment", color="green")
     INPUT_SIZE = (256, 256, 3)
     TARGET_SIZE = (256, 256)
@@ -838,6 +838,7 @@ def predict(experiment_name, weight, color_model, batch_normalization, test_dir_
         input_size=INPUT_SIZE,
         num_classes=NUM_CLASSES,
         batch_normalization=batch_normalization,
+        is_summary=False
     )
 
     # test the model
