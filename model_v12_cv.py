@@ -642,6 +642,7 @@ def save_result(
     target_size=(256, 256),
     num_class=3,
     save_each_layer=False,
+    save_iris=False,
 ):
     for ol in range(len(npyfile)):
         layer_output = npyfile[ol]
@@ -680,7 +681,7 @@ def save_result(
                             ),
                             item[:, :, 2],
                         )
-            elif ol == 1:
+            elif ol == 1 and save_iris:
                 item = np.reshape(item, target_size)
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
@@ -780,22 +781,18 @@ def plot(experiment_name):
 @cli.command()
 @click.argument("experiment_name")
 @click.argument("weight")
-@click.argument("test_dir_name")
+@click.argument("color_model")
 @click.argument("batch_normalization")
-def predict(experiment_name, weight, test_dir_name, batch_normalization):
+@click.argument("test_dir_name")
+def predict(experiment_name, weight, color_model, batch_normalization, test_dir_name):
     cprint(f"> Running `predict` command on ", color="green", end="")
     cprint(f"{experiment_name}", color="green", attrs=["bold"], end=", ")
-    cprint(f"{batch_normalization}", color="grey", attrs=["bold"], end=", ")
+    cprint(f"{color_model}", color="green", attrs=["bold"], end=", ")
+    cprint(f"{batch_normalization}" if batch_normalization else "", color="grey", attrs=["bold"], end=", ")
     cprint(f" experiment", color="green")
-    #  experiment_name = "eye_v2-baseline_v8_multiclass-softmax-cce-lw_8421-lr_1e_3"
-    #  weight = "98800"
-    #  test_dir_name = 'blind_conj'
-    BATCH_SIZE = 4  # 10
-    VALIDATION_STEPS = 2
     INPUT_SIZE = (256, 256, 3)
     TARGET_SIZE = (256, 256)
     NUM_CLASSES = 3
-    COLOR_MODEL = "hsv"  # rgb, hsv, ycbcr, gray
     SAVE_EACH_LAYER = False
     PREDICT_VERBOSE = 1  # 0 = silent, 1
 
@@ -804,14 +801,6 @@ def predict(experiment_name, weight, test_dir_name, batch_normalization):
     cprint(f" will be used to predict the images in ", color="green", end="")
     cprint(f"{test_dir_name}", color="green", attrs=["bold"], end="")
     cprint(f" directory", color="green")
-
-    if BATCH_SIZE > 10:
-        answer = input(
-            f"Do you want to continue using BATCH_SIZE={BATCH_SIZE} [y/n] : "
-        )
-        if not answer or answer[0].lower() != "y":
-            print("You can change the value of BATCH_SIZE in this file")
-            exit(1)
 
     dataset_path = os.path.join("data", experiment_name)
     weights_dir = os.path.join(dataset_path, "weights")
@@ -825,18 +814,16 @@ def predict(experiment_name, weight, test_dir_name, batch_normalization):
 
     def save_prediction_settings_file():
         with open(prediction_setting_file, "w") as f:
-            current_datetime = datetime.datetime.now().strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )
+            current_datetime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             f.write(f"{current_datetime}\n")
             f.write(f"experiment_name={experiment_name}\n")
             f.write(f"test_dir_name={test_dir_name}\n")
             f.write(f"weight={weight}\n")
-            f.write(f"BATCH_SIZE={BATCH_SIZE}\n")
+            f.write(f"BATCH_SIZE=1\n")
             f.write(f"INPUT_SIZE={INPUT_SIZE}\n")
             f.write(f"TARGET_SIZE={TARGET_SIZE}\n")
             f.write(f"NUM_CLASSES={NUM_CLASSES}\n")
-            f.write(f"COLOR_MODEL={COLOR_MODEL}\n")
+            f.write(f"COLOR_MODEL={color_model}\n")
             f.write(f"SAVE_EACH_LAYER={SAVE_EACH_LAYER}\n")
             f.write(f"=======================\n")
 
@@ -855,13 +842,16 @@ def predict(experiment_name, weight, test_dir_name, batch_normalization):
 
     # test the model
     test_data_dict = dict(
-        test_path=test_set_dir, target_size=TARGET_SIZE, image_color=COLOR_MODEL
+        test_path=test_set_dir,
+        target_size=TARGET_SIZE,
+        image_color=color_model,
     )
     test_flow, test_files = get_test_data(**test_data_dict)
-    test_gen = test_generator(test_flow, COLOR_MODEL)
+    test_gen = test_generator(test_flow, color_model)
 
+    predict_steps = len(test_files)
     results = model.predict_generator(
-        test_gen, steps=VALIDATION_STEPS, verbose=PREDICT_VERBOSE
+        test_gen, steps=predict_steps, verbose=PREDICT_VERBOSE
     )
     save_result(
         predicted_set_dir,
@@ -894,27 +884,40 @@ def evaluate(ctx):
     INPUT_SIZE = (256, 256, 3)
     TARGET_SIZE = (256, 256)
     NUM_CLASSES = 3
-    fold_list = range(1, 4+1)
-    batch_normalization_info = ("-bn" if BATCH_NORMALIZATION else "")
+    fold_list = range(1, 4 + 1)
+    batch_normalization_info = "-bn" if BATCH_NORMALIZATION else ""
     experiment_name_template = (
-        DATASET_NAME + "-" + MODEL_NAME + "-" + MODEL_INFO + "-" + COLOR_MODEL + "-fold_{0}" + "-lr_" + LEARNING_RATE + batch_normalization_info
+        DATASET_NAME
+        + "-"
+        + MODEL_NAME
+        + "-"
+        + MODEL_INFO
+        + "-"
+        + COLOR_MODEL
+        + "-fold_{0}"
+        + "-lr_"
+        + LEARNING_RATE
+        + batch_normalization_info
     )
-    training_validation_evaluation = evaluate_training_and_validation(experiment_name_template, fold_list)
+    training_validation_evaluation = evaluate_training_and_validation(
+        experiment_name_template, fold_list
+    )
 
     data_path = "data"
     evaluation_dir = os.path.join(data_path, "evaluation")
-    evaluation_csv_filename = experiment_name_template.format(f"{fold_list[0]}-{fold_list[-1]}") + ".csv"
+    evaluation_csv_filename = (
+        experiment_name_template.format(f"{fold_list[0]}-{fold_list[-1]}") + ".csv"
+    )
     evaluation_csv_file = os.path.join(evaluation_dir, evaluation_csv_filename)
 
     output_summary_evaluation = []
-    classes = ['iris', 'sclera', 'bg']
+    classes = ["iris", "sclera", "bg"]
     folds_label_image_pairs = {}
     for p_class in classes:
-        folds_label_image_pairs[p_class] = {
-            'label': np.empty(0),
-            'image': np.empty(0)
-        }
-    model_epoch_list = [fold_evaluation['epoch'] for fold_evaluation in training_validation_evaluation]
+        folds_label_image_pairs[p_class] = {"label": np.empty(0), "image": np.empty(0)}
+    model_epoch_list = [
+        fold_evaluation["epoch"] for fold_evaluation in training_validation_evaluation
+    ]
     for (fold, epoch) in zip(fold_list, model_epoch_list):
         experiment_name = experiment_name_template.format(fold)
         experiment_dir = os.path.join(data_path, experiment_name)
@@ -926,16 +929,6 @@ def evaluate(ctx):
         for _, _, files in os.walk(test_set_images_dir):
             num_test += len(files)
         print(f"num_test={num_test}")
-
-        test_data_dict = dict(
-            batch_size=BATCH_SIZE,
-            train_path=test_set_dir,
-            image_color=COLOR_MODEL,
-            mask_color=COLOR_MODEL,
-            save_to_dir=None,
-            target_size=TARGET_SIZE,
-            shuffle=False,
-        )
 
         trained_weights_file = f"{epoch:08d}.hdf5"
         trained_weights_file = os.path.join(weights_dir, trained_weights_file)
@@ -951,6 +944,15 @@ def evaluate(ctx):
             is_summary=False,
         )  # load pretrained model
 
+        test_data_dict = dict(
+            batch_size=BATCH_SIZE,
+            train_path=test_set_dir,
+            image_color=COLOR_MODEL,
+            mask_color=COLOR_MODEL,
+            save_to_dir=None,
+            target_size=TARGET_SIZE,
+            shuffle=False,
+        )
         test_flow = get_train_data(**test_data_dict)
         test_gen = train_generator(test_flow, COLOR_MODEL)
         groundtruths = []
@@ -969,8 +971,20 @@ def evaluate(ctx):
             predicted_results[0], groundtruths
         )  # [0] images, [1] masks
         for p_class in classes:
-            folds_label_image_pairs[p_class]['label'] = np.concatenate((folds_label_image_pairs[p_class]['label'], label_image_pairs[p_class]['label']), axis=None)
-            folds_label_image_pairs[p_class]['image'] = np.concatenate((folds_label_image_pairs[p_class]['image'], label_image_pairs[p_class]['image']), axis=None)
+            folds_label_image_pairs[p_class]["label"] = np.concatenate(
+                (
+                    folds_label_image_pairs[p_class]["label"],
+                    label_image_pairs[p_class]["label"],
+                ),
+                axis=None,
+            )
+            folds_label_image_pairs[p_class]["image"] = np.concatenate(
+                (
+                    folds_label_image_pairs[p_class]["image"],
+                    label_image_pairs[p_class]["image"],
+                ),
+                axis=None,
+            )
 
         test_flow = get_train_data(**test_data_dict)
         test_gen = train_generator(test_flow, COLOR_MODEL)
@@ -979,24 +993,32 @@ def evaluate(ctx):
         )
         # print(model.metrics_names) # [3] output1_acc
         print(evaluation)
-        training_validation_evaluation[fold-1]['test'] = format_accuracy(evaluation[3])
+        training_validation_evaluation[fold - 1]["test"] = evaluation[3]
 
     for p_class in classes:
-        precision = metrics.precision_score(label_image_pairs[p_class]['label'], label_image_pairs[p_class]['image'])
-        recall = metrics.recall_score(label_image_pairs[p_class]['label'], label_image_pairs[p_class]['image'])
-        f1 = metrics.f1_score(label_image_pairs[p_class]['label'], label_image_pairs[p_class]['image'])
+        precision = metrics.precision_score(
+            label_image_pairs[p_class]["label"], label_image_pairs[p_class]["image"]
+        )
+        recall = metrics.recall_score(
+            label_image_pairs[p_class]["label"], label_image_pairs[p_class]["image"]
+        )
+        f1 = metrics.f1_score(
+            label_image_pairs[p_class]["label"], label_image_pairs[p_class]["image"]
+        )
         output_summary_evaluation.append(precision)
         output_summary_evaluation.append(recall)
         output_summary_evaluation.append(f1)
-    
+
     ordered_training_validation_evaluation = []
     for fold_evaluation in training_validation_evaluation:
-        ordered_training_validation_evaluation.append(fold_evaluation['training'])
-        ordered_training_validation_evaluation.append(fold_evaluation['validation'])
-        ordered_training_validation_evaluation.append(fold_evaluation['test'])
-        ordered_training_validation_evaluation.append(fold_evaluation['epoch'])
-        
-    output_summary_evaluation = np.concatenate((output_summary_evaluation, ordered_training_validation_evaluation), axis=None)
+        ordered_training_validation_evaluation.append(fold_evaluation["training"])
+        ordered_training_validation_evaluation.append(fold_evaluation["validation"])
+        ordered_training_validation_evaluation.append(fold_evaluation["test"])
+        ordered_training_validation_evaluation.append(fold_evaluation["epoch"])
+
+    output_summary_evaluation = np.concatenate(
+        (output_summary_evaluation, ordered_training_validation_evaluation), axis=None
+    )
 
     with open(evaluation_csv_file, mode="w") as csv_f:
         csv_writer = csv.writer(
@@ -1030,20 +1052,20 @@ def evaluate_training_and_validation(experiment_name_template, fold_list):
         )
         max_val_output1_acc_epoch = arg_max_val_output1_acc + 1
         max_output1_acc = output1_acc[arg_max_val_output1_acc]
-
-        max_training_accuracy_percent = format_accuracy(max_output1_acc)
-        max_validation_accuracy_percent = format_accuracy(max_val_output1_acc)
-        output_values.append({
-            'training': max_training_accuracy_percent,
-            'validation': max_validation_accuracy_percent,
-            'epoch': max_val_output1_acc_epoch
-        })
+        output_values.append(
+            {
+                "training": max_output1_acc,
+                "validation": max_val_output1_acc,
+                "epoch": max_val_output1_acc_epoch,
+            }
+        )
 
         print(f"fold {fold}, max accuracy @ epoch # {max_val_output1_acc_epoch}")
         print(f"max training accuracy = {format_accuracy(max_output1_acc)}")
         print(f"max validation accuracy = {format_accuracy(max_val_output1_acc)}")
 
     return output_values
+
 
 def evaluate_classes(images, groundtruths):
     label_image_pairs = {}
@@ -1074,18 +1096,9 @@ def evaluate_classes(images, groundtruths):
         iris_image, sclera_image, bg_image = flatten_class_layers(image)
         iris_label, sclera_label, bg_label = flatten_class_layers(label)
 
-        label_image_pairs['iris'] = {
-            'label': iris_label,
-            'image': iris_image
-        }
-        label_image_pairs['sclera'] = {
-            'label': sclera_label,
-            'image': sclera_image
-        }
-        label_image_pairs['bg'] = {
-            'label': bg_label,
-            'image': bg_image,
-        }
+        label_image_pairs["iris"] = {"label": iris_label, "image": iris_image}
+        label_image_pairs["sclera"] = {"label": sclera_label, "image": sclera_image}
+        label_image_pairs["bg"] = {"label": bg_label, "image": bg_image}
     return label_image_pairs
 
 
