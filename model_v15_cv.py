@@ -876,14 +876,14 @@ def predict(experiment_name, weight, color_model, batch_normalization, test_dir_
 @cli.command()
 @click.pass_context
 def evaluate(ctx):
-    DATASET_NAME = "eye_v5"
-    MODEL_NAME = "model_v12_multiclass"
+    DATASET_NAME = "eye_v4"
+    MODEL_NAME = "model_v15_multiclass"
     MODEL_INFO = "softmax-cce-lw_1_0"
     COLOR_MODEL = "hsv"  # rgb, hsv, ycbcr, gray
     BATCH_NORMALIZATION = True
     LEARNING_RATE = "1e_2"
     BATCH_SIZE = 4
-    EVALUATE_STEPS = 4
+    EVALUATE_STEPS = 2
     INPUT_SIZE = (256, 256, 2)
     TARGET_SIZE = (256, 256)
     NUM_CLASSES = 3
