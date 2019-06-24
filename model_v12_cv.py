@@ -874,14 +874,14 @@ def predict(experiment_name, weight, color_model, batch_normalization, test_dir_
 @cli.command()
 @click.pass_context
 def evaluate(ctx):
-    DATASET_NAME = "eye_v4"
+    DATASET_NAME = "eye_v5"
     MODEL_NAME = "model_v12_multiclass"
     MODEL_INFO = "softmax-cce-lw_1_0"
-    COLOR_MODEL = "rgb"  # rgb, hsv, ycbcr, gray
+    COLOR_MODEL = "hsv"  # rgb, hsv, ycbcr, gray
     BATCH_NORMALIZATION = True
     LEARNING_RATE = "1e_2"
     BATCH_SIZE = 4
-    EVALUATE_STEPS = 2
+    EVALUATE_STEPS = 4
     INPUT_SIZE = (256, 256, 3)
     TARGET_SIZE = (256, 256)
     NUM_CLASSES = 3
@@ -962,7 +962,7 @@ def evaluate(ctx):
             for mask in mask_batch:
                 groundtruths.append(mask)
             step += 1
-            if step >= 2:
+            if step >= EVALUATE_STEPS:
                 break
         predicted_results = model.predict_generator(
             generator=test_gen, steps=EVALUATE_STEPS, verbose=1
@@ -998,13 +998,13 @@ def evaluate(ctx):
 
     for p_class in classes:
         precision = metrics.precision_score(
-            label_image_pairs[p_class]["label"], label_image_pairs[p_class]["image"]
+            folds_label_image_pairs[p_class]["label"], folds_label_image_pairs[p_class]["image"]
         )
         recall = metrics.recall_score(
-            label_image_pairs[p_class]["label"], label_image_pairs[p_class]["image"]
+            folds_label_image_pairs[p_class]["label"], folds_label_image_pairs[p_class]["image"]
         )
         f1 = metrics.f1_score(
-            label_image_pairs[p_class]["label"], label_image_pairs[p_class]["image"]
+            folds_label_image_pairs[p_class]["label"], folds_label_image_pairs[p_class]["image"]
         )
         output_summary_evaluation.append(precision)
         output_summary_evaluation.append(recall)
@@ -1012,9 +1012,9 @@ def evaluate(ctx):
 
     ordered_training_validation_evaluation = []
     for fold_evaluation in training_validation_evaluation:
-        ordered_training_validation_evaluation.append(fold_evaluation["training"])
-        ordered_training_validation_evaluation.append(fold_evaluation["validation"])
-        ordered_training_validation_evaluation.append(fold_evaluation["test"])
+        ordered_training_validation_evaluation.append(format_accuracy(fold_evaluation["training"]))
+        ordered_training_validation_evaluation.append(format_accuracy(fold_evaluation["validation"]))
+        ordered_training_validation_evaluation.append(format_accuracy(fold_evaluation["test"]))
         ordered_training_validation_evaluation.append(fold_evaluation["epoch"])
 
     output_summary_evaluation = np.concatenate(
@@ -1070,6 +1070,9 @@ def evaluate_training_and_validation(experiment_name_template, fold_list):
 
 def evaluate_classes(images, groundtruths):
     label_image_pairs = {}
+    classes = ["iris", "sclera", "bg"]
+    for p_class in classes:
+        label_image_pairs[p_class] = {"label": np.empty(0), "image": np.empty(0)}
     for image, label in zip(images, groundtruths):
         if image.shape != label.shape:
             print("Image's shape doesn't match with label's shape")
@@ -1094,12 +1097,27 @@ def evaluate_classes(images, groundtruths):
             iris, sclera, bg = extract_class_layers(image)
             return iris.flatten(), sclera.flatten(), bg.flatten()
 
-        iris_image, sclera_image, bg_image = flatten_class_layers(image)
-        iris_label, sclera_label, bg_label = flatten_class_layers(label)
+        flatten_label = {}
+        flatten_image = {}
 
-        label_image_pairs["iris"] = {"label": iris_label, "image": iris_image}
-        label_image_pairs["sclera"] = {"label": sclera_label, "image": sclera_image}
-        label_image_pairs["bg"] = {"label": bg_label, "image": bg_image}
+        flatten_label["iris"], flatten_label["sclera"], flatten_label["bg"] = flatten_class_layers(label)
+        flatten_image["iris"], flatten_image["sclera"], flatten_image["bg"] = flatten_class_layers(image)
+
+        for p_class in classes:
+            label_image_pairs[p_class]["label"] = np.concatenate(
+                (
+                    label_image_pairs[p_class]["label"],
+                    flatten_label[p_class],
+                ),
+                axis=None,
+            )
+            label_image_pairs[p_class]["image"] = np.concatenate(
+                (
+                    label_image_pairs[p_class]["image"],
+                    flatten_image[p_class],
+                ),
+                axis=None,
+            )
     return label_image_pairs
 
 

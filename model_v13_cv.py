@@ -883,36 +883,48 @@ def evaluate(ctx):
     DATASET_NAME = "eye_v4"
     MODEL_NAME = "model_v13_multiclass"
     MODEL_INFO = "softmax-cce-lw_1_0"
-    COLOR_MODEL = "rgb"  # rgb, hsv, ycbcr, gray
+    COLOR_MODEL = "hsv"  # rgb, hsv, ycbcr, gray
     BATCH_NORMALIZATION = True
     LEARNING_RATE = "1e_2"
     BATCH_SIZE = 4
     EVALUATE_STEPS = 2
-    INPUT_SIZE = (256, 256, 3 + 2)
+    INPUT_SIZE = (256, 256, 5)
     TARGET_SIZE = (256, 256)
     NUM_CLASSES = 3
-    fold_list = range(1, 4+1)
-    batch_normalization_info = ("-bn" if BATCH_NORMALIZATION else "")
+    fold_list = range(1, 4 + 1)
+    batch_normalization_info = "-bn" if BATCH_NORMALIZATION else ""
     experiment_name_template = (
-        DATASET_NAME + "-" + MODEL_NAME + "-" + MODEL_INFO + "-" + COLOR_MODEL + "-fold_{0}" + "-lr_" + LEARNING_RATE + batch_normalization_info
+        DATASET_NAME
+        + "-"
+        + MODEL_NAME
+        + "-"
+        + MODEL_INFO
+        + "-"
+        + COLOR_MODEL
+        + "-fold_{0}"
+        + "-lr_"
+        + LEARNING_RATE
+        + batch_normalization_info
     )
-    training_validation_evaluation = evaluate_training_and_validation(experiment_name_template, fold_list)
+    training_validation_evaluation = evaluate_training_and_validation(
+        experiment_name_template, fold_list
+    )
 
     data_path = "data"
     evaluation_dir = os.path.join(data_path, "evaluation")
-    evaluation_csv_filename = experiment_name_template.format(f"{fold_list[0]}-{fold_list[-1]}") + ".csv"
+    evaluation_csv_filename = (
+        experiment_name_template.format(f"{fold_list[0]}-{fold_list[-1]}") + ".csv"
+    )
     evaluation_csv_file = os.path.join(evaluation_dir, evaluation_csv_filename)
 
     output_summary_evaluation = []
-    classes = ['iris', 'sclera', 'bg']
+    classes = ["iris", "sclera", "bg"]
     folds_label_image_pairs = {}
     for p_class in classes:
-        folds_label_image_pairs[p_class] = {
-            'label': np.empty(0),
-            'image': np.empty(0)
-        }
-    model_epoch_list = [fold_evaluation['epoch'] for fold_evaluation in training_validation_evaluation]
-    print("Best epoch = ", model_epoch_list)
+        folds_label_image_pairs[p_class] = {"label": np.empty(0), "image": np.empty(0)}
+    model_epoch_list = [
+        fold_evaluation["epoch"] for fold_evaluation in training_validation_evaluation
+    ]
     for (fold, epoch) in zip(fold_list, model_epoch_list):
         experiment_name = experiment_name_template.format(fold)
         experiment_dir = os.path.join(data_path, experiment_name)
@@ -924,16 +936,6 @@ def evaluate(ctx):
         for _, _, files in os.walk(test_set_images_dir):
             num_test += len(files)
         print(f"num_test={num_test}")
-
-        test_data_dict = dict(
-            batch_size=BATCH_SIZE,
-            train_path=test_set_dir,
-            image_color=COLOR_MODEL,
-            mask_color=COLOR_MODEL,
-            save_to_dir=None,
-            target_size=TARGET_SIZE,
-            shuffle=False,
-        )
 
         trained_weights_file = f"{epoch:08d}.hdf5"
         trained_weights_file = os.path.join(weights_dir, trained_weights_file)
@@ -949,6 +951,15 @@ def evaluate(ctx):
             is_summary=False,
         )  # load pretrained model
 
+        test_data_dict = dict(
+            batch_size=BATCH_SIZE,
+            train_path=test_set_dir,
+            image_color=COLOR_MODEL,
+            mask_color=COLOR_MODEL,
+            save_to_dir=None,
+            target_size=TARGET_SIZE,
+            shuffle=False,
+        )
         test_flow = get_train_data(**test_data_dict)
         test_gen = train_generator(test_flow, COLOR_MODEL)
         groundtruths = []
@@ -957,7 +968,7 @@ def evaluate(ctx):
             for mask in mask_batch:
                 groundtruths.append(mask)
             step += 1
-            if step >= 2:
+            if step >= EVALUATE_STEPS:
                 break
         predicted_results = model.predict_generator(
             generator=test_gen, steps=EVALUATE_STEPS, verbose=1
@@ -967,8 +978,20 @@ def evaluate(ctx):
             predicted_results[0], groundtruths
         )  # [0] images, [1] masks
         for p_class in classes:
-            folds_label_image_pairs[p_class]['label'] = np.concatenate((folds_label_image_pairs[p_class]['label'], label_image_pairs[p_class]['label']), axis=None)
-            folds_label_image_pairs[p_class]['image'] = np.concatenate((folds_label_image_pairs[p_class]['image'], label_image_pairs[p_class]['image']), axis=None)
+            folds_label_image_pairs[p_class]["label"] = np.concatenate(
+                (
+                    folds_label_image_pairs[p_class]["label"],
+                    label_image_pairs[p_class]["label"],
+                ),
+                axis=None,
+            )
+            folds_label_image_pairs[p_class]["image"] = np.concatenate(
+                (
+                    folds_label_image_pairs[p_class]["image"],
+                    label_image_pairs[p_class]["image"],
+                ),
+                axis=None,
+            )
 
         test_flow = get_train_data(**test_data_dict)
         test_gen = train_generator(test_flow, COLOR_MODEL)
@@ -977,24 +1000,32 @@ def evaluate(ctx):
         )
         # print(model.metrics_names) # [3] output1_acc
         print(evaluation)
-        training_validation_evaluation[fold-1]['test'] = format_accuracy(evaluation[3])
+        training_validation_evaluation[fold - 1]["test"] = evaluation[3]
 
     for p_class in classes:
-        precision = metrics.precision_score(label_image_pairs[p_class]['label'], label_image_pairs[p_class]['image'])
-        recall = metrics.recall_score(label_image_pairs[p_class]['label'], label_image_pairs[p_class]['image'])
-        f1 = metrics.f1_score(label_image_pairs[p_class]['label'], label_image_pairs[p_class]['image'])
+        precision = metrics.precision_score(
+            folds_label_image_pairs[p_class]["label"], folds_label_image_pairs[p_class]["image"]
+        )
+        recall = metrics.recall_score(
+            folds_label_image_pairs[p_class]["label"], folds_label_image_pairs[p_class]["image"]
+        )
+        f1 = metrics.f1_score(
+            folds_label_image_pairs[p_class]["label"], folds_label_image_pairs[p_class]["image"]
+        )
         output_summary_evaluation.append(precision)
         output_summary_evaluation.append(recall)
         output_summary_evaluation.append(f1)
-    
+
     ordered_training_validation_evaluation = []
     for fold_evaluation in training_validation_evaluation:
-        ordered_training_validation_evaluation.append(fold_evaluation['training'])
-        ordered_training_validation_evaluation.append(fold_evaluation['validation'])
-        ordered_training_validation_evaluation.append(fold_evaluation['test'])
-        ordered_training_validation_evaluation.append(fold_evaluation['epoch'])
-        
-    output_summary_evaluation = np.concatenate((output_summary_evaluation, ordered_training_validation_evaluation), axis=None)
+        ordered_training_validation_evaluation.append(format_accuracy(fold_evaluation["training"]))
+        ordered_training_validation_evaluation.append(format_accuracy(fold_evaluation["validation"]))
+        ordered_training_validation_evaluation.append(format_accuracy(fold_evaluation["test"]))
+        ordered_training_validation_evaluation.append(fold_evaluation["epoch"])
+
+    output_summary_evaluation = np.concatenate(
+        (output_summary_evaluation, ordered_training_validation_evaluation), axis=None
+    )
 
     with open(evaluation_csv_file, mode="w") as csv_f:
         csv_writer = csv.writer(
@@ -1028,14 +1059,13 @@ def evaluate_training_and_validation(experiment_name_template, fold_list):
         )
         max_val_output1_acc_epoch = arg_max_val_output1_acc + 1
         max_output1_acc = output1_acc[arg_max_val_output1_acc]
-
-        max_training_accuracy_percent = format_accuracy(max_output1_acc)
-        max_validation_accuracy_percent = format_accuracy(max_val_output1_acc)
-        output_values.append({
-            'training': max_training_accuracy_percent,
-            'validation': max_validation_accuracy_percent,
-            'epoch': max_val_output1_acc_epoch
-        })
+        output_values.append(
+            {
+                "training": max_output1_acc,
+                "validation": max_val_output1_acc,
+                "epoch": max_val_output1_acc_epoch,
+            }
+        )
 
         print(f"fold {fold}, max accuracy @ epoch # {max_val_output1_acc_epoch}")
         print(f"max training accuracy = {format_accuracy(max_output1_acc)}")
@@ -1043,8 +1073,12 @@ def evaluate_training_and_validation(experiment_name_template, fold_list):
 
     return output_values
 
+
 def evaluate_classes(images, groundtruths):
     label_image_pairs = {}
+    classes = ["iris", "sclera", "bg"]
+    for p_class in classes:
+        label_image_pairs[p_class] = {"label": np.empty(0), "image": np.empty(0)}
     for image, label in zip(images, groundtruths):
         if image.shape != label.shape:
             print("Image's shape doesn't match with label's shape")
@@ -1069,21 +1103,27 @@ def evaluate_classes(images, groundtruths):
             iris, sclera, bg = extract_class_layers(image)
             return iris.flatten(), sclera.flatten(), bg.flatten()
 
-        iris_image, sclera_image, bg_image = flatten_class_layers(image)
-        iris_label, sclera_label, bg_label = flatten_class_layers(label)
+        flatten_label = {}
+        flatten_image = {}
 
-        label_image_pairs['iris'] = {
-            'label': iris_label,
-            'image': iris_image
-        }
-        label_image_pairs['sclera'] = {
-            'label': sclera_label,
-            'image': sclera_image
-        }
-        label_image_pairs['bg'] = {
-            'label': bg_label,
-            'image': bg_image,
-        }
+        flatten_label["iris"], flatten_label["sclera"], flatten_label["bg"] = flatten_class_layers(label)
+        flatten_image["iris"], flatten_image["sclera"], flatten_image["bg"] = flatten_class_layers(image)
+
+        for p_class in classes:
+            label_image_pairs[p_class]["label"] = np.concatenate(
+                (
+                    label_image_pairs[p_class]["label"],
+                    flatten_label[p_class],
+                ),
+                axis=None,
+            )
+            label_image_pairs[p_class]["image"] = np.concatenate(
+                (
+                    label_image_pairs[p_class]["image"],
+                    flatten_image[p_class],
+                ),
+                axis=None,
+            )
     return label_image_pairs
 
 
