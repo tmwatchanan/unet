@@ -35,13 +35,8 @@ from sklearn import metrics
 from tensorflow.python.keras.callbacks import TensorBoard
 from termcolor import colored, cprint
 
-from utils import add_sobel_filters, max_rgb_filter
-from model_v12_cv import create_model as v12_create_model
-from model_v12_cv import get_test_data as v12_get_test_data
-from model_v12_cv import test_generator as v12_test_generator
-from model_v15_cv import create_model as v15_create_model
-from model_v15_cv import get_test_data as v15_get_test_data
-from model_v15_cv import test_generator as v15_test_generator
+from utils import max_rgb_filter
+
 
 matplotlib.use("Agg")
 
@@ -212,7 +207,7 @@ def train(ctx):
         VALIDATION_BATCH_SIZE = 4
         TRAIN_STEPS_PER_EPOCH = 8
         VALIDATION_STEPS_PER_EPOCH = 4
-        INPUT_SIZE = (256, 256, 2)
+        INPUT_SIZE = (256, 256, 3 + 6) # Image + S1 S2
         TARGET_SIZE = (256, 256)
         NUM_CLASSES = 3
         SAVE_EACH_LAYER = False
@@ -561,7 +556,7 @@ def preprocess_mask_input(mask):
 
 def preprocess_images_in_batch(img_batch, segment1_batch, segment2_batch, img_color_model):
     processed_input_list = []
-    for (img, segmemt1, segment2) in zip(img_batch, segment1_batch, segment2_batch):
+    for (img, segment1, segment2) in zip(img_batch, segment1_batch, segment2_batch):
         processed_img = preprocess_image_input(img, img_color_model)
         processed_segment1 = preprocess_segment_input(segment1)
         processed_segment2 = preprocess_segment_input(segment2)
@@ -591,6 +586,7 @@ def get_train_data(
         image_color
     )
     image_datagen = ImageDataGenerator(**image_aug_dict)
+    segment_datagen = ImageDataGenerator()
     mask_datagen = ImageDataGenerator(**aug_dict)
     image_color_mode = "grayscale" if image_color == "gray" else "rgb"
     mask_color_mode = "grayscale" if mask_color == "gray" else "rgb"
@@ -606,6 +602,27 @@ def get_train_data(
         seed=seed,
         shuffle=shuffle,
     )
+    segments_path = os.path.join(train_path, 'segments')
+    segment1_flow = segment_datagen.flow_from_directory(
+        segments_path,
+        classes=['s1'],
+        class_mode=None,
+        color_mode=image_color_mode,
+        target_size=target_size,
+        batch_size=batch_size,
+        save_to_dir=save_to_dir,
+        save_prefix=image_save_prefix,
+        seed=seed)
+    segment2_flow = segment_datagen.flow_from_directory(
+        segments_path,
+        classes=['s3'],
+        class_mode=None,
+        color_mode=image_color_mode,
+        target_size=target_size,
+        batch_size=batch_size,
+        save_to_dir=save_to_dir,
+        save_prefix=image_save_prefix,
+        seed=seed)
     mask_flow = mask_datagen.flow_from_directory(
         train_path,
         classes=[mask_folder],
@@ -618,7 +635,7 @@ def get_train_data(
         seed=seed,
         shuffle=shuffle,
     )
-    return zip(image_flow, mask_flow)
+    return zip(image_flow, segment1_flow, segment2_flow, mask_flow)
 
 
 def get_test_data(
@@ -628,7 +645,7 @@ def get_test_data(
     test_datagen = ImageDataGenerator(preprocessing_function=color_convertion_function)
     segment_datagen = ImageDataGenerator()
     image_color_mode = "grayscale" if image_color == "gray" else "rgb"
-    image_flow = test_datagen.flow_from_directory(
+    test_flow = test_datagen.flow_from_directory(
         test_path,
         classes=[image_folder],
         class_mode=None,
@@ -657,19 +674,19 @@ def get_test_data(
         batch_size=1,
         shuffle=False,
         seed=seed)
-    return zip(image_flow, segment1_flow, segment2_flow), test_flow.filenames
+    return zip(test_flow, segment1_flow, segment2_flow), test_flow.filenames
 
 
 def train_generator(image_mask_pair_flow, image_color_model):
-    for (img_batch, mask_batch) in image_mask_pair_flow:
+    for (img_batch, segment1_batch, segment2_batch, mask_batch) in image_mask_pair_flow:
         processed_img_array = preprocess_images_in_batch(img_batch, segment1_batch, segment2_batch, image_color_model)
         mask, mask_iris = preprocess_mask_input(mask_batch)
         yield ([processed_img_array], [mask, mask_iris])
 
 
 def test_generator(test_flow, image_color_model):
-    for img_batch in test_flow:
-        processed_img_array = preprocess_images_in_batch(img_batch, image_color_model)
+    for (img_batch, segment1_batch, segment2_batch) in test_flow:
+        processed_img_array = preprocess_images_in_batch(img_batch, segment1_batch, segment2_batch, image_color_model)
         yield [processed_img_array]
 
 
@@ -920,7 +937,7 @@ def evaluate(ctx):
     LEARNING_RATE = "1e_2"
     BATCH_SIZE = 4
     EVALUATE_STEPS = 4
-    INPUT_SIZE = (256, 256, 2)
+    INPUT_SIZE = (256, 256, 9)
     TARGET_SIZE = (256, 256)
     NUM_CLASSES = 3
     fold_list = range(1, 4 + 1)
@@ -1162,93 +1179,5 @@ def evaluate_classes(images, groundtruths):
 def format_accuracy(number):
     return format(number * 100, "3.2f")
 
-
-@cli.command()
-@click.pass_context
-def create_segment_dataset(ctx):
-    cprint(f"> Running `create_segment_dataset` command", color="green")
-    TARGET_SIZE = (256, 256)
-    NUM_CLASSES = 3
-    SAVE_EACH_LAYER = False
-    PREDICT_VERBOSE = 1  # 0 = silent, 1
-    BATCH_NORMALIZATION = True
-
-    dataset_dir = os.path.join("datasets", "eye_v5-s1")
-
-    segment_inputs = [
-        { # s1
-            "name": "eye_v5-model_v12_multiclass-softmax-cce-lw_1_0-rgb-fold_{0}-lr_1e_2-bn",
-            "color_model": "rgb",
-            "weights": [4138, 4468, 3396, 3445],
-            "input_size": (256, 256, 3),
-            "prefix": "v12"
-        },
-        { # s3
-            "name": "eye_v5-model_v15_multiclass-softmax-cce-lw_1_0-hsv-fold_{0}-lr_1e_2-bn",
-            "color_model": "hsv",
-            "weights": [3874, 3437, 4470, 4996],
-            "input_size": (256, 256, 2),
-            "prefix": "v15"
-        }
-    ]
-    for s, segment_input in enumerate(segment_inputs):
-        model_v = segment_input["prefix"]
-        create_model_func = f"{model_v}_create_model"
-        get_test_data_func = f"{model_v}_get_test_data"
-        test_generator_func = f"{model_v}_test_generator"
-        for i, weight in enumerate(segment_input["weights"]):
-            fold = i + 1
-            set_dir = os.path.join(dataset_dir, f"set_{fold}")
-            predicted_result_dir = os.path.join(set_dir, "segments", str(s+1))
-            if not os.path.exists(predicted_result_dir):
-                os.makedirs(predicted_result_dir)
-
-            experiment_name = segment_input["name"].format(fold)
-            experiment_dir = os.path.join("data", experiment_name)
-            weights_dir = os.path.join(experiment_dir, "weights")
-
-            trained_weights_filename = f"{weight:08d}.hdf5"
-            trained_weights_file = os.path.join(weights_dir, trained_weights_filename)
-
-            input_size = segment_input["input_size"]
-
-            # load pretrained model
-            model = globals()[create_model_func](
-                pretrained_weights=trained_weights_file,
-                input_size=input_size,
-                num_classes=NUM_CLASSES,
-                batch_normalization=BATCH_NORMALIZATION,
-                is_summary=False
-            )
-
-            color_model = segment_input["color_model"]
-            # test the model
-            test_data_dict = dict(
-                test_path=set_dir,
-                target_size=TARGET_SIZE,
-                image_color=color_model,
-            )
-            test_flow, test_files = globals()[get_test_data_func](**test_data_dict)
-            test_gen = globals()[test_generator_func](test_flow, color_model)
-
-            predict_steps = len(test_files)
-            results = model.predict_generator(
-                test_gen, steps=predict_steps, verbose=PREDICT_VERBOSE
-            )
-            save_result(
-                predicted_result_dir,
-                results,
-                file_names=test_files,
-                weights_name=weight,
-                target_size=TARGET_SIZE,
-                num_class=NUM_CLASSES,
-                save_each_layer=SAVE_EACH_LAYER,
-            )
-    cprint(
-        f"> `create_segment_dataset` command was successfully run, the predicted result will be in ",
-        color="green",
-        end="",
-    )
-    cprint(f"{predicted_result_dir}", color="green", attrs=["bold"])
 if __name__ == "__main__":
     cli()
