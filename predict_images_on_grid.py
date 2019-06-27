@@ -89,7 +89,8 @@ def predict():
     NUM_CLASSES = 3
     PREDICT_VERBOSE = 1  # 0 = silent, 1
 
-    fig = plt.figure(figsize=(10, 8))
+    fig = plt.figure(figsize=(20, 7))
+    fig.tight_layout()
     figure_title = experiment_epoch_pairs[0][0].replace("fold_1", "4_folds")
     fig.suptitle(figure_title)
     num_folds = len(experiment_epoch_pairs)
@@ -99,7 +100,7 @@ def predict():
     for fold, (experiment_name, epoch) in enumerate(experiment_epoch_pairs):
         for set_number, test_dir_name in enumerate(test_dir_names):
             inner = gridspec.GridSpecFromSubplotSpec(
-                3, 1, subplot_spec=outer[(fold * 2) + set_number], wspace=0, hspace=0
+                2, 1, subplot_spec=outer[(fold * 2) + set_number], wspace=0, hspace=0
             )
 
             weight = f"{epoch:08d}"
@@ -156,7 +157,7 @@ def predict():
                 groundtruths.append(groundtruth)
 
             row = gridspec.GridSpecFromSubplotSpec(
-                1, len(test_files), subplot_spec=inner[0], wspace=0, hspace=0
+                1, len(test_files), subplot_spec=inner[0], wspace=0.3, hspace=0
             )
             plot_groundtruths(
                 fig,
@@ -173,7 +174,7 @@ def predict():
             """
             fig.add_subplot()
             row = gridspec.GridSpecFromSubplotSpec(
-                1, len(test_files), subplot_spec=inner[1], wspace=0, hspace=0
+                1, len(test_files), subplot_spec=inner[1], wspace=0.3, hspace=0
             )
             plot_predicted_outputs(
                 fig,
@@ -226,7 +227,7 @@ def plot_groundtruths(
         ax = plt.Subplot(fig, axs[i])
         ax.imshow(groundtruth)
         ax.axis("off")
-        ax.set_title(f"{filename}", fontdict={"fontsize": 8})
+        ax.set_title(f"{filename}", fontdict={"fontsize": 4})
         fig.add_subplot(ax)
     return axs
 
