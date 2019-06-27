@@ -1,5 +1,6 @@
 import datetime
 import os
+import textwrap
 
 import matplotlib
 
@@ -89,18 +90,17 @@ def predict():
     NUM_CLASSES = 3
     PREDICT_VERBOSE = 1  # 0 = silent, 1
 
-    fig = plt.figure(figsize=(20, 7))
-    fig.tight_layout()
-    figure_title = experiment_epoch_pairs[0][0].replace("fold_1", "4_folds")
-    fig.suptitle(figure_title)
-    num_folds = len(experiment_epoch_pairs)
-    num_test_sets = len(test_dir_names)
-    outer = gridspec.GridSpec(num_folds, num_test_sets, wspace=0.2, hspace=0.2)
+    for test_dir_name in test_dir_names:
+        fig = plt.figure(figsize=(28, 10))
+        fig.tight_layout()
+        figure_title = experiment_epoch_pairs[0][0].replace("fold_1", "4_folds")
+        fig.suptitle(figure_title)
+        num_folds = len(experiment_epoch_pairs)
+        outer = gridspec.GridSpec(num_folds, 1, wspace=0.2, hspace=0.2)
 
-    for fold, (experiment_name, epoch) in enumerate(experiment_epoch_pairs):
-        for set_number, test_dir_name in enumerate(test_dir_names):
+        for fold, (experiment_name, epoch) in enumerate(experiment_epoch_pairs):
             inner = gridspec.GridSpecFromSubplotSpec(
-                2, 1, subplot_spec=outer[(fold * 2) + set_number], wspace=0, hspace=0
+                2, 1, subplot_spec=outer[fold], wspace=0, hspace=0.3
             )
 
             weight = f"{epoch:08d}"
@@ -157,7 +157,7 @@ def predict():
                 groundtruths.append(groundtruth)
 
             row = gridspec.GridSpecFromSubplotSpec(
-                1, len(test_files), subplot_spec=inner[0], wspace=0.3, hspace=0
+                1, len(test_files), subplot_spec=inner[0], wspace=0.2, hspace=0
             )
             plot_groundtruths(
                 fig,
@@ -174,7 +174,7 @@ def predict():
             """
             fig.add_subplot()
             row = gridspec.GridSpecFromSubplotSpec(
-                1, len(test_files), subplot_spec=inner[1], wspace=0.3, hspace=0
+                1, len(test_files), subplot_spec=inner[1], wspace=0.2, hspace=0
             )
             plot_predicted_outputs(
                 fig,
@@ -185,35 +185,18 @@ def predict():
                 num_class=NUM_CLASSES,
             )
 
-            """
-            Set caption
-            """
-            # row.text(
-            #     0.5,
-            #     -0.5,
-            #     f"Fold {fold+1} <{test_dir_name}>",
-            #     size=12,
-            #     ha="center",
-            #     transform=row.transAxes,
-            # )
-            # row = gridspec.GridSpecFromSubplotSpec(
-            #     1, 1, subplot_spec=inner[2], wspace=0, hspace=0
-            # )
-            # ax = plt.Subplot(fig, row[0])
-            # ax.axis("off")
-            # ax.set_title(f"Fold {fold+1} : {test_dir_name}")
-            # fig.add_subplot(ax)
+        plt.draw()
+        plt.pause(0.001)
+        # input("Press [enter] to continue.")
+        plt.show()
 
-    plt.draw()
-    plt.pause(0.001)
-    # input("Press [enter] to continue.")
-    plt.show()
-
-    prediction_dir = os.path.join("data", "prediction")
-    if not os.path.exists(prediction_dir):
-        os.makedirs(prediction_dir)
-    figure_file = os.path.join(prediction_dir, f"{figure_title}.png")
-    plt.savefig(figure_file, bbox_inches="tight")
+        prediction_dir = os.path.join("data", "prediction")
+        if not os.path.exists(prediction_dir):
+            os.makedirs(prediction_dir)
+        figure_file = os.path.join(
+            prediction_dir, f"{figure_title}-{test_dir_name}.png"
+        )
+        plt.savefig(figure_file, bbox_inches="tight")
 
 
 def plot_groundtruths(
@@ -225,9 +208,12 @@ def plot_groundtruths(
         groundtruth = skimage.transform.resize(groundtruth, output_shape)
 
         ax = plt.Subplot(fig, axs[i])
+        ax.set(ylabel="groundtruth")
         ax.imshow(groundtruth)
         ax.axis("off")
-        ax.set_title(f"{filename}", fontdict={"fontsize": 4})
+        title = f"{filename}"
+        title = "\n".join(textwrap.wrap(title, 15))
+        ax.set_title(title, fontdict={"fontsize": 8})
         fig.add_subplot(ax)
     return axs
 
@@ -242,6 +228,7 @@ def plot_predicted_outputs(
         visualized_img[visualized_img > 0] = 1
 
         ax = plt.Subplot(fig, axs[i])
+        ax.set(ylabel="predicted")
         ax.imshow(visualized_img)
         ax.axis("off")
         fig.add_subplot(ax)
