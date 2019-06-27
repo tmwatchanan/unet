@@ -10,8 +10,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import skimage
 from termcolor import colored, cprint
+import tensorflow as tf
 
 from utils import max_rgb_filter
+
+from check_accuracy import preprocess_image, calculate_accuracy, format_accuracy
 
 
 experiment_pool = {
@@ -77,12 +80,18 @@ experiment_pool = {
     ],
 }
 
-from model_v15_cv import create_model, get_test_data, get_train_data, test_generator
+from model_v15_cv import (
+    create_model,
+    get_test_data,
+    get_train_data,
+    test_generator,
+    train_generator,
+)
 
 
 def predict():
     INPUT_SIZE = (256, 256, 2)
-    COLOR_MODEL = "rgb"
+    COLOR_MODEL = "hsv"
     BATCH_NORMALIZATION = True
     experiment_epoch_pairs = experiment_pool["eye_v5-model_v15-hsv"]
     test_dir_names = ["validation", "test"]
@@ -91,7 +100,7 @@ def predict():
     PREDICT_VERBOSE = 1  # 0 = silent, 1
 
     for test_dir_name in test_dir_names:
-        fig = plt.figure(figsize=(28, 10))
+        fig = plt.figure(figsize=(28, 14))
         fig.tight_layout()
         figure_title = experiment_epoch_pairs[0][0].replace("fold_1", "4_folds")
         fig.suptitle(figure_title)
@@ -180,6 +189,7 @@ def predict():
                 fig,
                 row,
                 segment_results,
+                groundtruths,
                 weights_name=weight,
                 target_size=TARGET_SIZE,
                 num_class=NUM_CLASSES,
@@ -198,6 +208,8 @@ def predict():
         )
         plt.savefig(figure_file, bbox_inches="tight")
 
+        break
+
 
 def plot_groundtruths(
     fig, axs, groundtruths, filenames, weights_name, target_size=(256, 256), num_class=3
@@ -213,25 +225,39 @@ def plot_groundtruths(
         ax.axis("off")
         title = f"{filename}"
         title = "\n".join(textwrap.wrap(title, 15))
-        ax.set_title(title, fontdict={"fontsize": 8})
+        ax.set_title(title, fontdict={"fontsize": 8, "fontweight": "bold"})
         fig.add_subplot(ax)
     return axs
 
 
+def cce_accuracy(groundtruth, segment, target_size):
+    accuracy = tf.keras.metrics.categorical_accuracy(groundtruth, segment)
+    accuracy = accuracy.eval(session=tf.Session())
+    accuracy = (accuracy == 1).sum() / (target_size[0] * target_size[1])
+    return accuracy
+
+
 def plot_predicted_outputs(
-    fig, axs, results, weights_name, target_size=(256, 256), num_class=3
+    fig, axs, results, groundtruths, weights_name, target_size=(256, 256), num_class=3
 ):
-    for i, segment in enumerate(results):
+    accuracies = []
+    for i, (segment, groundtruth) in enumerate(zip(results, groundtruths)):
         output_shape = (target_size[0], target_size[1], num_class)
-        segment = np.reshape(segment, output_shape)
-        visualized_img = max_rgb_filter(segment)
-        visualized_img[visualized_img > 0] = 1
+        groundtruth = preprocess_image(groundtruth, output_shape)
+        segment = preprocess_image(segment, output_shape)
+        accuracy = calculate_accuracy(groundtruth, segment, output_shape)
+        # accuracy = cce_accuracy(groundtruth, segment, output_shape)
+        accuracies.append(accuracy)
+        accuracy = format_accuracy(accuracy)
 
         ax = plt.Subplot(fig, axs[i])
+        title = f"{accuracy}%"
+        ax.set_title(title, fontdict={"fontsize": 8})
         ax.set(ylabel="predicted")
-        ax.imshow(visualized_img)
+        ax.imshow(segment)
         ax.axis("off")
         fig.add_subplot(ax)
+    print("average accuracy =", np.mean(accuracies))
     return axs
 
 
