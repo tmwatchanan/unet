@@ -47,6 +47,7 @@ from tensorflow.python.keras.callbacks import TensorBoard
 from termcolor import colored, cprint
 
 from utils import add_sobel_filters, max_rgb_filter
+from datasets import Dataset
 
 matplotlib.use("Agg")
 
@@ -194,13 +195,14 @@ class TimeHistory(Callback):
 @cli.command()
 @click.pass_context
 def train(ctx):
+    DATASET_NAME = "eye_v5"
+    dataset = Dataset(DATASET_NAME)
+
     for fold in range(1, 4 + 1):
-        #  click.echo('> `train` function')
         cprint("> ", end="")
         cprint("`train`", color="green", end="")
         cprint(" function")
-        DATASET_NAME = "eye_v4"
-        COLOR_MODEL = "hsv"  # rgb, hsv, ycbcr, gray
+        COLOR_MODEL = "hsv" # rgb, hsv, ycbcr, gray
         MODEL_NAME = "model_v15_multiclass"
         MODEL_INFO = f"softmax-cce-lw_1_0-{COLOR_MODEL}-fold_{fold}"
         BATCH_NORMALIZATION = True
@@ -213,10 +215,6 @@ def train(ctx):
         EPOCH_START = 0
         EPOCH_END = 5000
         MODEL_PERIOD = 1
-        TRAIN_BATCH_SIZE = 4
-        VALIDATION_BATCH_SIZE = 4
-        TRAIN_STEPS_PER_EPOCH = 4
-        VALIDATION_STEPS_PER_EPOCH = 2
         INPUT_SIZE = (256, 256, 2)
         TARGET_SIZE = (256, 256)
         NUM_CLASSES = 3
@@ -261,10 +259,11 @@ def train(ctx):
                 f.write(f"EPOCH_START={EPOCH_START}\n")
                 f.write(f"EPOCH_END={EPOCH_END}\n")
                 f.write(f"MODEL_PERIOD={MODEL_PERIOD}\n")
-                f.write(f"TRAIN_BATCH_SIZE={TRAIN_BATCH_SIZE}\n")
-                f.write(f"VALIDATION_BATCH_SIZE={VALIDATION_BATCH_SIZE}\n")
-                f.write(f"TRAIN_STEPS_PER_EPOCH={TRAIN_STEPS_PER_EPOCH}\n")
-                f.write(f"VALIDATION_STEPS_PER_EPOCH={VALIDATION_STEPS_PER_EPOCH}\n")
+                f.write(f"DATASET_NAME={DATASET_NAME}\n")
+                f.write(f"TRAIN_BATCH_SIZE={dataset.train_batch_size}\n")
+                f.write(f"VALIDATION_BATCH_SIZE={dataset.validation_batch_size}\n")
+                f.write(f"TRAIN_STEPS_PER_EPOCH={dataset.train_steps_per_epoch}\n")
+                f.write(f"VALIDATION_STEPS_PER_EPOCH={dataset.validation_steps_per_epoch}\n")
                 f.write(f"LEARNING_RATE={LEARNING_RATE}\n")
                 f.write(f"INPUT_SIZE={INPUT_SIZE}\n")
                 f.write(f"TARGET_SIZE={TARGET_SIZE}\n")
@@ -289,8 +288,6 @@ def train(ctx):
         num_validation = 0
         for _, _, files in os.walk(validation_images_set_dir):
             num_validation += len(files)
-        if TRAIN_STEPS_PER_EPOCH is None:
-            TRAIN_STEPS_PER_EPOCH = num_training
         print(f"num_training={num_training}")
         print(f"num_validation={num_validation}")
 
@@ -315,7 +312,7 @@ def train(ctx):
             fill_mode="nearest",
         )
         train_data_dict = dict(
-            batch_size=TRAIN_BATCH_SIZE,
+            batch_size=dataset.train_batch_size,
             train_path=training_set_dir,
             aug_dict=data_gen_args,
             image_color=COLOR_MODEL,
@@ -327,7 +324,7 @@ def train(ctx):
         train_gen = train_generator(train_flow, COLOR_MODEL)
 
         validation_data_dict = dict(
-            batch_size=VALIDATION_BATCH_SIZE,
+            batch_size=dataset.validation_batch_size,
             train_path=validation_set_dir,
             image_color=COLOR_MODEL,
             mask_color=COLOR_MODEL,
@@ -385,12 +382,12 @@ def train(ctx):
         ]
         history = model.fit_generator(
             train_gen,
-            steps_per_epoch=TRAIN_STEPS_PER_EPOCH,
+            steps_per_epoch=dataset.train_steps_per_epoch,
             epochs=EPOCH_END,
             initial_epoch=EPOCH_START,
             callbacks=callbacks,
             validation_data=validation_gen,
-            validation_steps=VALIDATION_STEPS_PER_EPOCH,
+            validation_steps=dataset.validation_steps_per_epoch,
             workers=0,
             use_multiprocessing=True,
             verbose=FIT_VERBOSE,
@@ -876,14 +873,14 @@ def predict(experiment_name, weight, color_model, batch_normalization, test_dir_
 @cli.command()
 @click.pass_context
 def evaluate(ctx):
-    DATASET_NAME = "eye_v4"
+    DATASET_NAME = "eye_v5"
     MODEL_NAME = "model_v15_multiclass"
     MODEL_INFO = "softmax-cce-lw_1_0"
     COLOR_MODEL = "hsv"  # rgb, hsv, ycbcr, gray
     BATCH_NORMALIZATION = True
     LEARNING_RATE = "1e_2"
     BATCH_SIZE = 4
-    EVALUATE_STEPS = 2
+    EVALUATE_STEPS = 4
     INPUT_SIZE = (256, 256, 2)
     TARGET_SIZE = (256, 256)
     NUM_CLASSES = 3
