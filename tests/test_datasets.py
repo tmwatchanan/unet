@@ -2,6 +2,12 @@ import pytest
 from datasets import Dataset
 
 
+class TestDataset:
+    def test_invalid_name(self):
+        with pytest.raises(ValueError, match=r".*is invalid dataset name.*"):
+            _ = Dataset("eye")
+
+
 class TestDatasetEyeV4:
     def test_name(self):
         dataset = Dataset("eye_v4")

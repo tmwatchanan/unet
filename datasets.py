@@ -4,6 +4,8 @@ class Dataset:
             self.set_eye_v4()
         elif name == "eye_v5":
             self.set_eye_v5()
+        else:
+            raise ValueError(f"{name} is invalid dataset name")
 
     def set_eye_v4(self):
         self.name = "eye_v4"
