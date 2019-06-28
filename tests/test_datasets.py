@@ -8,7 +8,7 @@ class TestDataset:
             _ = Dataset("eye")
 
 
-class TestDatasetEyeV4:
+class TestEyeV4:
     def test_name(self):
         dataset = Dataset("eye_v4")
         assert dataset.name == "eye_v4"
@@ -30,7 +30,7 @@ class TestDatasetEyeV4:
         assert dataset.validation_steps_per_epoch == 2
 
 
-class TestDatasetEyeV5:
+class TestEyeV5:
     def test_name(self):
         dataset = Dataset("eye_v5")
         assert dataset.name == "eye_v5"
