@@ -874,13 +874,14 @@ def predict(experiment_name, weight, color_model, batch_normalization, test_dir_
 @click.pass_context
 def evaluate(ctx):
     DATASET_NAME = "eye_v5"
+    dataset = Dataset(DATASET_NAME)
     MODEL_NAME = "model_v15_multiclass"
     MODEL_INFO = "softmax-cce-lw_1_0"
     COLOR_MODEL = "hsv"  # rgb, hsv, ycbcr, gray
     BATCH_NORMALIZATION = True
     LEARNING_RATE = "1e_2"
-    BATCH_SIZE = 4
-    EVALUATE_STEPS = 4
+    batch_size = dataset.validation_batch_size
+    evaluate_steps = dataset.validation_steps_per_epoch
     INPUT_SIZE = (256, 256, 2)
     TARGET_SIZE = (256, 256)
     NUM_CLASSES = 3
@@ -945,7 +946,7 @@ def evaluate(ctx):
         )  # load pretrained model
 
         test_data_dict = dict(
-            batch_size=BATCH_SIZE,
+            batch_size=batch_size,
             train_path=test_set_dir,
             image_color=COLOR_MODEL,
             mask_color=COLOR_MODEL,
@@ -961,10 +962,10 @@ def evaluate(ctx):
             for mask in mask_batch:
                 groundtruths.append(mask)
             step += 1
-            if step >= EVALUATE_STEPS:
+            if step >= evaluate_steps:
                 break
         predicted_results = model.predict_generator(
-            generator=test_gen, steps=EVALUATE_STEPS, verbose=1
+            generator=test_gen, steps=evaluate_steps, verbose=1
         )
 
         label_image_pairs = evaluate_classes(
@@ -989,7 +990,7 @@ def evaluate(ctx):
         test_flow = get_train_data(**test_data_dict)
         test_gen = train_generator(test_flow, COLOR_MODEL)
         evaluation = model.evaluate_generator(
-            generator=test_gen, steps=EVALUATE_STEPS, verbose=1
+            generator=test_gen, steps=evaluate_steps, verbose=1
         )
         # print(model.metrics_names) # [3] output1_acc
         print(evaluation)
