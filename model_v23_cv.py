@@ -279,8 +279,6 @@ def train(ctx):
         num_validation = 0
         for _, _, files in os.walk(validation_images_set_dir):
             num_validation += len(files)
-        if TRAIN_STEPS_PER_EPOCH is None:
-            TRAIN_STEPS_PER_EPOCH = num_training
         print(f"num_training={num_training}")
         print(f"num_validation={num_validation}")
 
