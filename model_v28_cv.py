@@ -511,7 +511,7 @@ def preprocess_image_input(img1, img2):
         3D array -- preprocessed image
     """
     # create a duplicate object of image
-    gradients = copy.deepcopy(img1)
+    gradients = img1.copy()
     # add sobel feature layers
     gradients = add_sobel_filters(img1, "hsv", gradients)
     # normalize the values of gradient x and y
