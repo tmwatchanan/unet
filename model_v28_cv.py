@@ -637,7 +637,7 @@ def get_test_data(
         shuffle=False,
         seed=seed,
     )
-    return (image1_flow, image2_flow), image1_flow.filenames
+    return zip(image1_flow, image2_flow), image1_flow.filenames
 
 
 def train_generator(image_mask_pair_flow):
@@ -896,7 +896,7 @@ def evaluate(ctx):
     LEARNING_RATE = "1e_2"
     batch_size = dataset.validation_batch_size
     evaluate_steps = dataset.validation_steps_per_epoch
-    INPUT_SIZE = (256, 256, 2)
+    INPUT_SIZE = (256, 256, 8)
     TARGET_SIZE = (256, 256)
     NUM_CLASSES = 3
     fold_list = range(1, 4 + 1)
