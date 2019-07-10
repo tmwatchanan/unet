@@ -862,7 +862,7 @@ def evaluate(ctx):
     MODEL_INFO = "softmax-cce-lw_1_0"
     COLOR_MODEL = "rgb"  # rgb, hsv, ycbcr, gray
     BATCH_NORMALIZATION = True
-    LEARNING_RATE = "1e_2_4"
+    LEARNING_RATE = "1e_4"
     batch_size = dataset.validation_batch_size
     evaluate_steps = dataset.validation_steps_per_epoch
     INPUT_SIZE = (256, 256, 3)
@@ -880,7 +880,7 @@ def evaluate(ctx):
         + COLOR_MODEL
         + "-fold_{0}"
         + "-lr_"
-        + LEARNING_RATE
+        + "1e_2_4"
         + batch_normalization_info
     )
     training_validation_evaluation = evaluate_training_and_validation(
@@ -941,7 +941,7 @@ def evaluate(ctx):
         test_gen = train_generator(test_flow, COLOR_MODEL)
         groundtruths = []
         step = 0
-        for (_,), (mask_batch, _) in test_gen:
+        for (_,), (mask_batch,) in test_gen:
             for mask in mask_batch:
                 groundtruths.append(mask)
             step += 1
@@ -952,7 +952,7 @@ def evaluate(ctx):
         )
 
         label_image_pairs = evaluate_classes(
-            predicted_results[0], groundtruths
+            predicted_results, groundtruths
         )  # [0] images, [1] masks
         for p_class in classes:
             folds_label_image_pairs[p_class]["label"] = np.concatenate(
@@ -975,9 +975,9 @@ def evaluate(ctx):
         evaluation = model.evaluate_generator(
             generator=test_gen, steps=evaluate_steps, verbose=1
         )
-        # print(model.metrics_names) # [3] output1_acc
+        # print(model.metrics_names) # [1] acc
         print(evaluation)
-        training_validation_evaluation[fold - 1]["test"] = evaluation[3]
+        training_validation_evaluation[fold - 1]["test"] = evaluation[1]
 
     for p_class in classes:
         precision = metrics.precision_score(
@@ -1033,7 +1033,15 @@ def evaluate_training_and_validation(experiment_name_template, fold_list):
 
         training_log = pd.read_csv(training_log_file)
         acc = training_log["acc"]
+        acc = [
+            a if ((i+1) % 100 == 0) or ((i+1) >= 7000 and (i+1) <= 7486) else 0.0
+            for i, a in enumerate(acc)
+        ]
         val_acc = training_log["val_acc"]
+        val_acc = [
+            a if ((i+1) % 100 == 0) or ((i+1) >= 7000 and (i+1) <= 7486) else 0.0
+            for i, a in enumerate(val_acc)
+        ]
 
         def find_best_accuracy(accuracy_values):
             arg_max_acc = np.argmax(np.array(accuracy_values))
@@ -1067,7 +1075,7 @@ def evaluate_classes(images, groundtruths):
         label_image_pairs[p_class] = {"label": np.empty(0), "image": np.empty(0)}
     for image, label in zip(images, groundtruths):
         if image.shape != label.shape:
-            print("Image's shape doesn't match with label's shape")
+            print(f"Image's shape ({image.shape}) doesn't match with label's shape ({label.shape})")
             exit(1)
         for x in range(0, image.shape[0]):
             for y in range(0, image.shape[1]):
