@@ -36,7 +36,7 @@ from sklearn import metrics
 from tensorflow.python.keras.callbacks import TensorBoard
 from termcolor import colored, cprint
 
-from utils import max_rgb_filter
+from utils import add_sobel_filters, max_rgb_filter
 from datasets import Dataset
 
 matplotlib.use("Agg")
