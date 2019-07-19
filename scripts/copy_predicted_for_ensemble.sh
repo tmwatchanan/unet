@@ -5,13 +5,14 @@ s2="eye_v5-model_v12_multiclass-softmax-cce-lw_1_0-hsv-fold_{fold}-lr_1e_2-bn"
 s3="eye_v5-model_v15_multiclass-softmax-cce-lw_1_0-hsv-fold_{fold}-lr_1e_2-bn"
 s4="eye_v5-model_v13_multiclass-softmax-cce-lw_1_0-rgb-fold_{fold}-lr_1e_2-bn"
 s5="eye_v5-model_v13_multiclass-softmax-cce-lw_1_0-hsv-fold_{fold}-lr_1e_2-bn"
+s6="eye_v5-model_v28_multiclass-softmax-cce-lw_1_0-fold_{fold}-lr_1e_2-bn"
 
 function copy() {
     data_dir="data"
     ensemble_dir="$data_dir/ensemble"
     for i in {1..4}; do
         fold_dir="$ensemble_dir/fold_$i"
-        for s in {1..5}; do
+        for s in {1..6}; do
             si="s$s"
 
             model_fold_name="${!si}"
