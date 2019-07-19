@@ -827,7 +827,7 @@ def predict(experiment_name, weight, batch_normalization, test_dir_name):
     cprint(f"{experiment_name}", color="green", attrs=["bold"], end=", ")
     cprint(f"batch_normalization" if batch_normalization else "", color="grey", attrs=["bold"], end=", ")
     cprint(f" experiment", color="green")
-    INPUT_SIZE = (256, 256, 3 + 3 + 2)
+    INPUT_SIZE = (256, 256, 15)
     TARGET_SIZE = (256, 256)
     NUM_CLASSES = 3
     SAVE_EACH_LAYER = False
