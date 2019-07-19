@@ -21,11 +21,22 @@ import skimage
 from scipy import ndimage
 import tensorflow as tf
 from keras import backend as K
-from keras.callbacks import (Callback, CSVLogger, LambdaCallback,
-                             ModelCheckpoint)
-from keras.layers import (Activation, BatchNormalization, Concatenate, Conv2D,
-                          Dense, Flatten, Input, Lambda, MaxPooling2D, Permute,
-                          Reshape, ThresholdedReLU, UpSampling2D)
+from keras.callbacks import Callback, CSVLogger, LambdaCallback, ModelCheckpoint
+from keras.layers import (
+    Activation,
+    BatchNormalization,
+    Concatenate,
+    Conv2D,
+    Dense,
+    Flatten,
+    Input,
+    Lambda,
+    MaxPooling2D,
+    Permute,
+    Reshape,
+    ThresholdedReLU,
+    UpSampling2D,
+)
 from keras.models import Model
 from keras.optimizers import Adam
 from keras.preprocessing.image import ImageDataGenerator
@@ -35,8 +46,7 @@ from termcolor import colored, cprint
 
 from utils import max_rgb_filter
 
-matplotlib.use('Agg')
-
+matplotlib.use("Agg")
 
 
 @click.group()
@@ -46,9 +56,9 @@ def cli():
 
 
 def get_color_convertion_function(color_model):
-    if color_model == 'hsv':
+    if color_model == "hsv":
         color_convertion_function = skimage.color.rgb2hsv
-    elif color_model == 'ycbcr':
+    elif color_model == "ycbcr":
         color_convertion_function = skimage.color.rgb2ycbcr
     else:
         color_convertion_function = None
@@ -56,8 +66,18 @@ def get_color_convertion_function(color_model):
 
 
 class PredictOutput(Callback):
-    def __init__(self, test_set_dir, color_model, weights_dir, target_size,
-                 num_classes, predicted_set_dir, period, save_each_layer, fit_verbose):
+    def __init__(
+        self,
+        test_set_dir,
+        color_model,
+        weights_dir,
+        target_size,
+        num_classes,
+        predicted_set_dir,
+        period,
+        save_each_layer,
+        fit_verbose,
+    ):
         #  self.out_log = []
         self.test_set_dir = test_set_dir
         self.color_model = color_model
@@ -71,7 +91,7 @@ class PredictOutput(Callback):
 
     def on_epoch_end(self, epoch, logs=None):
         predict_epoch = epoch + 1
-        if (predict_epoch % self.period == 0):
+        if predict_epoch % self.period == 0:
             test_data_dict = dict(
                 test_path=self.test_set_dir,
                 target_size=self.target_size,
@@ -82,7 +102,8 @@ class PredictOutput(Callback):
             num_test_files = len(test_files)
 
             results = self.model.predict_generator(
-                test_gen, steps=num_test_files, verbose=self.fit_verbose)
+                test_gen, steps=num_test_files, verbose=self.fit_verbose
+            )
             last_weights_file = f"{predict_epoch:08d}"
             save_result(
                 self.predicted_set_dir,
@@ -91,37 +112,39 @@ class PredictOutput(Callback):
                 weights_name=last_weights_file,
                 target_size=self.target_size,
                 num_class=self.num_classes,
-                save_each_layer=self.save_each_layer)
+                save_each_layer=self.save_each_layer,
+            )
         #  self.out_log.append()
 
 
 class TimeHistory(Callback):
-    def __init__(self, filename, separator=',', append=False):
+    def __init__(self, filename, separator=",", append=False):
         self.sep = separator
         self.filename = filename
         self.append = append
         self.writer = None
-        self.keys = ['time_per_epoch']
+        self.keys = ["time_per_epoch"]
         self.append_header = True
         if six.PY2:
-            self.file_flags = 'b'
+            self.file_flags = "b"
             self._open_args = {}
         else:
-            self.file_flags = ''
-            self._open_args = {'newline': '\n'}
+            self.file_flags = ""
+            self._open_args = {"newline": "\n"}
         super(TimeHistory, self).__init__()
 
     def on_train_begin(self, logs={}):
         self.times = []
         if self.append:
             if os.path.exists(self.filename):
-                with open(self.filename, 'r' + self.file_flags) as f:
+                with open(self.filename, "r" + self.file_flags) as f:
                     self.append_header = not bool(len(f.readline()))
-            mode = 'a'
+            mode = "a"
         else:
-            mode = 'w'
-        self.csv_file = io.open(self.filename, mode + self.file_flags,
-                                **self._open_args)
+            mode = "w"
+        self.csv_file = io.open(
+            self.filename, mode + self.file_flags, **self._open_args
+        )
 
     def on_train_end(self, logs=None):
         self.csv_file.close()
@@ -138,30 +161,30 @@ class TimeHistory(Callback):
             if isinstance(k, six.string_types):
                 return k
             elif isinstance(k, Iterable) and not is_zero_dim_ndarray:
-                return '"[%s]"' % (', '.join(map(str, k)))
+                return '"[%s]"' % (", ".join(map(str, k)))
             else:
                 return k
 
         if self.model.stop_training:
             # We set NA so that csv parsers do not fail for this last epoch.
-            logs = dict(
-                [(k, logs[k] if k in logs else 'NA') for k in self.keys])
+            logs = dict([(k, logs[k] if k in logs else "NA") for k in self.keys])
 
         if not self.writer:
 
             class CustomDialect(csv.excel):
                 delimiter = self.sep
 
-            fieldnames = ['epoch'] + self.keys
+            fieldnames = ["epoch"] + self.keys
             if six.PY2:
                 fieldnames = [unicode(x) for x in fieldnames]
             self.writer = csv.DictWriter(
-                self.csv_file, fieldnames=fieldnames, dialect=CustomDialect)
+                self.csv_file, fieldnames=fieldnames, dialect=CustomDialect
+            )
             if self.append_header:
                 self.writer.writeheader()
 
-        row_dict = OrderedDict({'epoch': epoch})
-        row_dict.update({'time_per_epoch': self.times[-1]})
+        row_dict = OrderedDict({"epoch": epoch})
+        row_dict.update({"time_per_epoch": self.times[-1]})
         self.writer.writerow(row_dict)
         self.csv_file.flush()
 
@@ -169,61 +192,61 @@ class TimeHistory(Callback):
 @cli.command()
 @click.pass_context
 def train(ctx):
-    for loo in range(1, 16+1):
+    for loo in range(1, 16 + 1):
         #  click.echo('> `train` function')
-        cprint("> ", end='')
-        cprint("`train`", color='green', end='')
+        cprint("> ", end="")
+        cprint("`train`", color="green", end="")
         cprint(" function")
-        DATASET_NAME = 'eye_v3-s3'
-        COLOR_MODEL = 'hsv'  # rgb, hsv, ycbcr, gray
-        MODEL_NAME = 'model_v23_multiclass'
+        DATASET_NAME = "eye_v3-s3"
+        COLOR_MODEL = "hsv"  # rgb, hsv, ycbcr, gray
+        MODEL_NAME = "model_v23_multiclass"
         MODEL_INFO = f"softmax-cce-lw_1_0.01-{COLOR_MODEL}-loo_{loo}"
         BATCH_NORMALIZATION = True
         LEARNING_RATE = "1e_2"
-        EXPERIMENT_NAME = f"{DATASET_NAME}-{MODEL_NAME}-{MODEL_INFO}-lr_{LEARNING_RATE}" + (
-            "-bn" if BATCH_NORMALIZATION else "")
-        TEST_DIR_NAME = 'test'
+        EXPERIMENT_NAME = (
+            f"{DATASET_NAME}-{MODEL_NAME}-{MODEL_INFO}-lr_{LEARNING_RATE}"
+            + ("-bn" if BATCH_NORMALIZATION else "")
+        )
+        TEST_DIR_NAME = "test"
         EPOCH_START = 0
         EPOCH_END = 5000
         MODEL_PERIOD = 100
         BATCH_SIZE = 6  # 10
         STEPS_PER_EPOCH = 1  # None
-        INPUT_SIZE = (256, 256, 3 + 6) # 6 comes from the 1-pass segments
+        INPUT_SIZE = (256, 256, 3 + 6)  # 6 comes from the 1-pass segments
         TARGET_SIZE = (256, 256)
         NUM_CLASSES = 3
         SAVE_EACH_LAYER = False
-        FIT_VERBOSE = 2 # 0 = silent, 1 = progress bar, 2 = one line per epoch
+        FIT_VERBOSE = 2  # 0 = silent, 1 = progress bar, 2 = one line per epoch
 
         if BATCH_SIZE > 10:
             answer = input(
                 f"Do you want to continue using BATCH_SIZE={BATCH_SIZE} [y/n] : "
             )
-            if not answer or answer[0].lower() != 'y':
+            if not answer or answer[0].lower() != "y":
                 print("You can change the value of BATCH_SIZE in this file")
                 exit(1)
 
-        dataset_path = os.path.join('data', EXPERIMENT_NAME)
-        weights_dir = os.path.join(dataset_path, 'weights')
-        training_set_dir = os.path.join(dataset_path, 'train')
-        training_images_set_dir = os.path.join(training_set_dir, 'images')
-        training_labels_set_dir = os.path.join(training_set_dir, 'labels')
-        training_aug_set_dir = os.path.join(training_set_dir, 'augmentation')
-        validation_set_dir = os.path.join(dataset_path, 'validation')
-        validation_images_set_dir = os.path.join(validation_set_dir, 'images')
-        validation_labels_set_dir = os.path.join(validation_set_dir, 'labels')
-        validation_aug_set_dir = os.path.join(validation_set_dir,
-                                              'augmentation')
+        dataset_path = os.path.join("data", EXPERIMENT_NAME)
+        weights_dir = os.path.join(dataset_path, "weights")
+        training_set_dir = os.path.join(dataset_path, "train")
+        training_images_set_dir = os.path.join(training_set_dir, "images")
+        training_labels_set_dir = os.path.join(training_set_dir, "labels")
+        training_aug_set_dir = os.path.join(training_set_dir, "augmentation")
+        validation_set_dir = os.path.join(dataset_path, "validation")
+        validation_images_set_dir = os.path.join(validation_set_dir, "images")
+        validation_labels_set_dir = os.path.join(validation_set_dir, "labels")
+        validation_aug_set_dir = os.path.join(validation_set_dir, "augmentation")
         test_set_dir = os.path.join(dataset_path, TEST_DIR_NAME)
-        predicted_set_dir = os.path.join(dataset_path,
-                                         f"{TEST_DIR_NAME}-predicted-{COLOR_MODEL}")
-        training_log_file = os.path.join(dataset_path, 'training.csv')
-        training_time_log_file = os.path.join(dataset_path,
-                                              'training_time.csv')
-        loss_acc_file = os.path.join(dataset_path, 'loss_acc.csv')
-        experiments_setting_file = os.path.join(dataset_path,
-                                                'experiment_settings.txt')
-        model_file = os.path.join(dataset_path, 'model.png')
-        tensorboard_log_dir = os.path.join(dataset_path, 'logs')
+        predicted_set_dir = os.path.join(
+            dataset_path, f"{TEST_DIR_NAME}-predicted-{COLOR_MODEL}"
+        )
+        training_log_file = os.path.join(dataset_path, "training.csv")
+        training_time_log_file = os.path.join(dataset_path, "training_time.csv")
+        loss_acc_file = os.path.join(dataset_path, "loss_acc.csv")
+        experiments_setting_file = os.path.join(dataset_path, "experiment_settings.txt")
+        model_file = os.path.join(dataset_path, "model.png")
+        tensorboard_log_dir = os.path.join(dataset_path, "logs")
 
         if not os.path.exists(weights_dir):
             os.makedirs(weights_dir)
@@ -237,7 +260,8 @@ def train(ctx):
         def save_experiment_settings_file():
             with open(experiments_setting_file, "a") as f:
                 current_datetime = datetime.datetime.now().strftime(
-                    "%Y-%m-%eye_v3_segments_dir %H:%M:%S")
+                    "%Y-%m-%eye_v3_segments_dir %H:%M:%S"
+                )
                 f.write(f"{current_datetime}\n")
                 f.write(f"MODEL_NAME={MODEL_NAME}\n")
                 f.write(f"MODEL_INFO={MODEL_INFO}\n")
@@ -263,8 +287,7 @@ def train(ctx):
         else:
             trained_weights_name = f"{EPOCH_START:08d}"
             trained_weights_file = model_filename.format(trained_weights_name)
-            trained_weights_file = os.path.join(weights_dir,
-                                                trained_weights_file)
+            trained_weights_file = os.path.join(weights_dir, trained_weights_file)
 
         num_training = 0
         for _, _, files in os.walk(training_images_set_dir):
@@ -282,8 +305,9 @@ def train(ctx):
             input_size=INPUT_SIZE,
             num_classes=NUM_CLASSES,
             learning_rate=learning_rate,
-            batch_normalization=BATCH_NORMALIZATION)  # load pretrained model
-        
+            batch_normalization=BATCH_NORMALIZATION,
+        )  # load pretrained model
+
         # save model architecture figure
         plot_model(model, show_shapes=True, to_file=model_file)
 
@@ -294,7 +318,8 @@ def train(ctx):
             shear_range=0.05,
             zoom_range=0.1,
             horizontal_flip=True,
-            fill_mode='nearest')
+            fill_mode="nearest",
+        )
         train_data_dict = dict(
             batch_size=BATCH_SIZE,
             train_path=training_set_dir,
@@ -302,7 +327,8 @@ def train(ctx):
             image_color=COLOR_MODEL,
             mask_color=COLOR_MODEL,
             save_to_dir=None,
-            target_size=TARGET_SIZE)
+            target_size=TARGET_SIZE,
+        )
         train_flow = get_train_data(**train_data_dict)
         train_gen = train_generator(train_flow, COLOR_MODEL)
 
@@ -312,23 +338,25 @@ def train(ctx):
             image_color=COLOR_MODEL,
             mask_color=COLOR_MODEL,
             save_to_dir=None,
-            target_size=TARGET_SIZE)
+            target_size=TARGET_SIZE,
+        )
         validation_flow = get_train_data(**validation_data_dict)
         validation_gen = train_generator(validation_flow, COLOR_MODEL)
 
         # train the model
         #  new_weights_name = '{epoch:08d}'
         #  new_weights_file = model_filename.format(new_weights_name)
-        new_weights_file = '{epoch:08d}.hdf5'
+        new_weights_file = "{epoch:08d}.hdf5"
         new_weights_file = os.path.join(weights_dir, new_weights_file)
         model_checkpoint = ModelCheckpoint(
             filepath=new_weights_file,
-            monitor='val_acc',
-            mode='auto',
+            monitor="val_acc",
+            mode="auto",
             verbose=1,
             save_best_only=False,
             save_weights_only=False,
-            period=MODEL_PERIOD)
+            period=MODEL_PERIOD,
+        )
         predict_output = PredictOutput(
             test_set_dir,
             COLOR_MODEL,
@@ -338,21 +366,27 @@ def train(ctx):
             predicted_set_dir,
             period=MODEL_PERIOD,
             save_each_layer=SAVE_EACH_LAYER,
-            fit_verbose=FIT_VERBOSE)
+            fit_verbose=FIT_VERBOSE,
+        )
         csv_logger = CSVLogger(training_log_file, append=True)
         tensorboard = TensorBoard(
             log_dir=os.path.join(tensorboard_log_dir, str(time.time())),
             histogram_freq=0,
             write_graph=True,
-            write_images=True)
+            write_images=True,
+        )
         last_epoch = []
         save_output_callback = LambdaCallback(
-            on_epoch_end=lambda epoch, logs: (last_epoch.append(epoch)))
-        time_history_callback = TimeHistory(
-            training_time_log_file, append=True)
+            on_epoch_end=lambda epoch, logs: (last_epoch.append(epoch))
+        )
+        time_history_callback = TimeHistory(training_time_log_file, append=True)
         callbacks = [
-            model_checkpoint, csv_logger, tensorboard, save_output_callback,
-            predict_output, time_history_callback
+            model_checkpoint,
+            csv_logger,
+            tensorboard,
+            save_output_callback,
+            predict_output,
+            time_history_callback,
         ]
         history = model.fit_generator(
             train_gen,
@@ -364,7 +398,8 @@ def train(ctx):
             validation_steps=num_validation,
             workers=0,
             use_multiprocessing=True,
-            verbose=FIT_VERBOSE)
+            verbose=FIT_VERBOSE,
+        )
         #  print(history.history.keys())  # show dict of metrics in history
 
         # plot([EXPERIMENT_NAME])
@@ -372,117 +407,103 @@ def train(ctx):
 
 
 def diff_iris_area(y_true, y_pred):
-    area_true = K.cast(K.sum(y_true, axis=[1, 2]), 'float32')
+    area_true = K.cast(K.sum(y_true, axis=[1, 2]), "float32")
     area_pred = K.sum(y_pred, axis=[1, 2])
     normalized_diff = (area_true - area_pred) / area_true
     return K.mean(K.square(normalized_diff), axis=0)
 
 
-def create_model(pretrained_weights=None,
-                 input_size=(),
-                 num_classes=2,
-                 learning_rate=1e-4,
-                 batch_normalization=False):
+def create_model(
+    pretrained_weights=None,
+    input_size=(),
+    num_classes=2,
+    learning_rate=1e-4,
+    batch_normalization=False,
+):
     input1_size = input_size
-    input1 = Input(shape=input1_size, name='input1')
+    input1 = Input(shape=input1_size, name="input1")
 
-    layer1 = Conv2D(
-        6, 3, padding='same', kernel_initializer='he_normal')(input1)
+    layer1 = Conv2D(6, 3, padding="same", kernel_initializer="he_normal")(input1)
     if batch_normalization:
         layer1 = BatchNormalization()(layer1)
-    layer1 = Activation('sigmoid')(layer1)
+    layer1 = Activation("sigmoid")(layer1)
 
     layer2 = MaxPooling2D(pool_size=(2, 2))(layer1)
 
-    layer3 = Conv2D(
-        12, 3, padding='same', kernel_initializer='he_normal')(layer2)
+    layer3 = Conv2D(12, 3, padding="same", kernel_initializer="he_normal")(layer2)
     if batch_normalization:
         layer3 = BatchNormalization()(layer3)
-    layer3 = Activation('sigmoid')(layer3)
+    layer3 = Activation("sigmoid")(layer3)
 
     layer4 = MaxPooling2D(pool_size=(2, 2))(layer3)
 
-    layer5 = Conv2D(
-        24, 3, padding='same', kernel_initializer='he_normal')(layer4)
+    layer5 = Conv2D(24, 3, padding="same", kernel_initializer="he_normal")(layer4)
     if batch_normalization:
         layer5 = BatchNormalization()(layer5)
-    layer5 = Activation('sigmoid')(layer5)
+    layer5 = Activation("sigmoid")(layer5)
 
     layer6 = MaxPooling2D(pool_size=(2, 2))(layer5)
 
-    layer7 = Conv2D(
-        32, 3, padding='same', kernel_initializer='he_normal')(layer6)
+    layer7 = Conv2D(32, 3, padding="same", kernel_initializer="he_normal")(layer6)
     if batch_normalization:
         layer7 = BatchNormalization()(layer7)
-    layer7 = Activation('sigmoid')(layer7)
+    layer7 = Activation("sigmoid")(layer7)
 
     layer8 = MaxPooling2D(pool_size=(2, 2))(layer7)
 
-    layer9 = Conv2D(
-        64, 1, padding='same', kernel_initializer='he_normal')(layer8)
+    layer9 = Conv2D(64, 1, padding="same", kernel_initializer="he_normal")(layer8)
     if batch_normalization:
         layer9 = BatchNormalization()(layer9)
-    layer9 = Activation('sigmoid')(layer9)
+    layer9 = Activation("sigmoid")(layer9)
 
     layer10 = UpSampling2D(size=(2, 2))(layer9)
 
-    layer11 = Conv2D(
-        32, 3, padding='same', kernel_initializer='he_normal')(layer10)
+    layer11 = Conv2D(32, 3, padding="same", kernel_initializer="he_normal")(layer10)
     if batch_normalization:
         layer11 = BatchNormalization()(layer11)
-    layer11 = Activation('sigmoid')(layer11)
+    layer11 = Activation("sigmoid")(layer11)
 
     layer12 = UpSampling2D(size=(2, 2))(layer11)
 
-    layer13 = Conv2D(
-        24, 3, padding='same', kernel_initializer='he_normal')(layer12)
+    layer13 = Conv2D(24, 3, padding="same", kernel_initializer="he_normal")(layer12)
     if batch_normalization:
         layer13 = BatchNormalization()(layer13)
-    layer13 = Activation('sigmoid')(layer13)
+    layer13 = Activation("sigmoid")(layer13)
 
     layer14 = UpSampling2D(size=(2, 2))(layer13)
 
-    layer15 = Conv2D(
-        12, 3, padding='same', kernel_initializer='he_normal')(layer14)
+    layer15 = Conv2D(12, 3, padding="same", kernel_initializer="he_normal")(layer14)
     if batch_normalization:
         layer15 = BatchNormalization()(layer15)
-    layer15 = Activation('sigmoid')(layer15)
+    layer15 = Activation("sigmoid")(layer15)
 
     layer16 = UpSampling2D(size=(2, 2))(layer15)
 
-    layer17 = Conv2D(
-        6, 3, padding='same', kernel_initializer='he_normal')(layer16)
+    layer17 = Conv2D(6, 3, padding="same", kernel_initializer="he_normal")(layer16)
     if batch_normalization:
         layer17 = BatchNormalization()(layer17)
-    layer17 = Activation('sigmoid')(layer17)
+    layer17 = Activation("sigmoid")(layer17)
 
     output1 = Conv2D(
         num_classes,
         3,
-        activation='softmax',
-        padding='same',
-        kernel_initializer='he_normal',
-        name='output1')(layer17)
+        activation="softmax",
+        padding="same",
+        kernel_initializer="he_normal",
+        name="output1",
+    )(layer17)
 
     output_iris = Lambda(lambda x: x[:, :, :, 0])(output1)
-    output_iris = ThresholdedReLU(theta=0.5, name='output_iris')(output_iris)
+    output_iris = ThresholdedReLU(theta=0.5, name="output_iris")(output_iris)
 
     model = Model(inputs=[input1], outputs=[output1, output_iris])
 
     model.compile(
         optimizer=Adam(lr=learning_rate),
-        loss={
-            'output1': 'categorical_crossentropy',
-            'output_iris': diff_iris_area,
-        },
-        loss_weights={
-            'output1': 1,
-            'output_iris': 0.01,
-        },
-        metrics={
-            'output1': ['accuracy'],
-            'output_iris': ['accuracy'],
-        })
+        loss={"output1": "categorical_crossentropy", "output_iris": diff_iris_area},
+        loss_weights={"output1": 1, "output_iris": 0.01},
+        metrics={"output1": ["accuracy"], "output_iris": ["accuracy"]},
+    )
 
     model.summary()
 
@@ -509,10 +530,10 @@ def preprocess_image_input(img, color_model):
     processed_img = copy.deepcopy(img)
 
     # normalize the values of image to be in range [0, 1]
-    if color_model == 'hsv':
+    if color_model == "hsv":
         # normalize V layer
         processed_img[:, :, 2] /= 255.0
-    if color_model == 'rgb':
+    if color_model == "rgb":
         # normalize RGB layers => 0:3 = 0,1,2
         processed_img[:, :, 0:3] /= 255.0
     return processed_img
@@ -536,40 +557,47 @@ def preprocess_mask_input(mask):
     return mask, mask_iris
 
 
-def preprocess_images_in_batch(img_batch, segment1_batch, segment2_batch, img_color_model):
+def preprocess_images_in_batch(
+    img_batch, segment1_batch, segment2_batch, img_color_model
+):
     processed_input_list = []
     image_segment_iterator = zip(img_batch, segment1_batch, segment2_batch)
     for (img, segment1, segment2) in image_segment_iterator:
         processed_img = preprocess_image_input(img, img_color_model)
         processed_segment1 = preprocess_segment_input(segment1)
         processed_segment2 = preprocess_segment_input(segment2)
-        processed_input = np.concatenate((processed_img, processed_segment1, processed_segment2), axis=-1)
+        processed_input = np.concatenate(
+            (processed_img, processed_segment1, processed_segment2), axis=-1
+        )
         processed_input_list.append(processed_input)
     processed_input_array = np.array(processed_input_list)
     return processed_input_array
 
 
-def get_train_data(batch_size,
-                    train_path,
-                    aug_dict=dict(),
-                    image_folder='images',
-                    segment_folder='segments',
-                    mask_folder='labels',
-                    image_color='rgb',
-                    mask_color='rgb',
-                    image_save_prefix="image",
-                    mask_save_prefix="mask",
-                    save_to_dir=None,
-                    target_size=(256, 256),
-                    seed=1):
+def get_train_data(
+    batch_size,
+    train_path,
+    aug_dict=dict(),
+    image_folder="images",
+    segment_folder="segments",
+    mask_folder="labels",
+    image_color="rgb",
+    mask_color="rgb",
+    image_save_prefix="image",
+    mask_save_prefix="mask",
+    save_to_dir=None,
+    target_size=(256, 256),
+    seed=1,
+):
     image_aug_dict = copy.deepcopy(aug_dict)
-    image_aug_dict['preprocessing_function'] = get_color_convertion_function(
-        image_color)
+    image_aug_dict["preprocessing_function"] = get_color_convertion_function(
+        image_color
+    )
     image_datagen = ImageDataGenerator(**image_aug_dict)
     segment_datagen = ImageDataGenerator()
     mask_datagen = ImageDataGenerator(**aug_dict)
-    image_color_mode = 'grayscale' if image_color == 'gray' else 'rgb';
-    mask_color_mode = 'grayscale' if mask_color == 'gray' else 'rgb';
+    image_color_mode = "grayscale" if image_color == "gray" else "rgb"
+    mask_color_mode = "grayscale" if mask_color == "gray" else "rgb"
     image_flow = image_datagen.flow_from_directory(
         train_path,
         classes=[image_folder],
@@ -579,28 +607,31 @@ def get_train_data(batch_size,
         batch_size=batch_size,
         save_to_dir=save_to_dir,
         save_prefix=image_save_prefix,
-        seed=seed)
-    segments_path = os.path.join(train_path, 'segments')
+        seed=seed,
+    )
+    segments_path = os.path.join(train_path, "segments")
     segment1_flow = segment_datagen.flow_from_directory(
         segments_path,
-        classes=['1'],
+        classes=["1"],
         class_mode=None,
         color_mode=image_color_mode,
         target_size=target_size,
         batch_size=batch_size,
         save_to_dir=save_to_dir,
         save_prefix=image_save_prefix,
-        seed=seed)
+        seed=seed,
+    )
     segment2_flow = segment_datagen.flow_from_directory(
         segments_path,
-        classes=['2'],
+        classes=["2"],
         class_mode=None,
         color_mode=image_color_mode,
         target_size=target_size,
         batch_size=batch_size,
         save_to_dir=save_to_dir,
         save_prefix=image_save_prefix,
-        seed=seed)
+        seed=seed,
+    )
     mask_flow = mask_datagen.flow_from_directory(
         train_path,
         classes=[mask_folder],
@@ -610,17 +641,24 @@ def get_train_data(batch_size,
         batch_size=batch_size,
         save_to_dir=save_to_dir,
         save_prefix=mask_save_prefix,
-        seed=seed)
+        seed=seed,
+    )
     image_mask_pair_flow = zip(image_flow, segment1_flow, segment2_flow, mask_flow)
     return image_mask_pair_flow
 
 
-def get_test_data(test_path, image_folder='images', segment_folder='segments', target_size=(256, 256), image_color='rgb', seed=1):
+def get_test_data(
+    test_path,
+    image_folder="images",
+    segment_folder="segments",
+    target_size=(256, 256),
+    image_color="rgb",
+    seed=1,
+):
     color_convertion_function = get_color_convertion_function(image_color)
-    test_datagen = ImageDataGenerator(
-        preprocessing_function=color_convertion_function)
+    test_datagen = ImageDataGenerator(preprocessing_function=color_convertion_function)
     segment_datagen = ImageDataGenerator()
-    image_color_mode = 'grayscale' if image_color == 'gray' else 'rgb';
+    image_color_mode = "grayscale" if image_color == "gray" else "rgb"
     test_flow = test_datagen.flow_from_directory(
         test_path,
         classes=[image_folder],
@@ -629,49 +667,58 @@ def get_test_data(test_path, image_folder='images', segment_folder='segments', t
         target_size=target_size,
         batch_size=1,
         shuffle=False,
-        seed=seed)
-    segments_path = os.path.join(test_path, 'segments')
+        seed=seed,
+    )
+    segments_path = os.path.join(test_path, "segments")
     segment1_flow = segment_datagen.flow_from_directory(
         segments_path,
-        classes=['1'],
+        classes=["1"],
         class_mode=None,
-        color_mode='rgb',
+        color_mode="rgb",
         target_size=target_size,
         batch_size=1,
         shuffle=False,
-        seed=seed)
+        seed=seed,
+    )
     segment2_flow = segment_datagen.flow_from_directory(
         segments_path,
-        classes=['2'],
+        classes=["2"],
         class_mode=None,
-        color_mode='rgb',
+        color_mode="rgb",
         target_size=target_size,
         batch_size=1,
         shuffle=False,
-        seed=seed)
+        seed=seed,
+    )
     return zip(test_flow, segment1_flow, segment2_flow), test_flow.filenames
 
 
 def train_generator(image_mask_pair_flow, image_color_model):
     for (img_batch, segment1_batch, segment2_batch, mask_batch) in image_mask_pair_flow:
-        processed_img_array = preprocess_images_in_batch(img_batch, segment1_batch, segment2_batch, image_color_model)
+        processed_img_array = preprocess_images_in_batch(
+            img_batch, segment1_batch, segment2_batch, image_color_model
+        )
         mask, mask_iris = preprocess_mask_input(mask_batch)
         yield ([processed_img_array], [mask, mask_iris])
 
 
 def test_generator(test_flow, image_color_model):
     for (img_batch, segment1_batch, segment2_batch) in test_flow:
-        processed_img_array = preprocess_images_in_batch(img_batch, segment1_batch, segment2_batch, image_color_model)
+        processed_img_array = preprocess_images_in_batch(
+            img_batch, segment1_batch, segment2_batch, image_color_model
+        )
         yield [processed_img_array]
 
 
-def save_result(save_path,
-                npyfile,
-                file_names,
-                weights_name,
-                target_size=(256, 256),
-                num_class=3,
-                save_each_layer=False):
+def save_result(
+    save_path,
+    npyfile,
+    file_names,
+    weights_name,
+    target_size=(256, 256),
+    num_class=3,
+    save_each_layer=False,
+):
     for ol in range(len(npyfile)):
         layer_output = npyfile[ol]
         for i, item in enumerate(layer_output):
@@ -686,58 +733,64 @@ def save_result(save_path,
                     warnings.simplefilter("ignore")
                     skimage.io.imsave(
                         os.path.join(
-                            save_path,
-                            f"{file_name}-{weights_name}-{ol+1}-merged.png"),
-                        visualized_img)
+                            save_path, f"{file_name}-{weights_name}-{ol+1}-merged.png"
+                        ),
+                        visualized_img,
+                    )
                     if save_each_layer:
                         skimage.io.imsave(
                             os.path.join(
-                                save_path,
-                                f"{file_name}-{weights_name}-{ol+1}-0.png"),
-                            item[:, :, 0])
+                                save_path, f"{file_name}-{weights_name}-{ol+1}-0.png"
+                            ),
+                            item[:, :, 0],
+                        )
                         skimage.io.imsave(
                             os.path.join(
-                                save_path,
-                                f"{file_name}-{weights_name}-{ol+1}-1.png"),
-                            item[:, :, 1])
+                                save_path, f"{file_name}-{weights_name}-{ol+1}-1.png"
+                            ),
+                            item[:, :, 1],
+                        )
                         skimage.io.imsave(
                             os.path.join(
-                                save_path,
-                                f"{file_name}-{weights_name}-{ol+1}-2.png"),
-                            item[:, :, 2])
+                                save_path, f"{file_name}-{weights_name}-{ol+1}-2.png"
+                            ),
+                            item[:, :, 2],
+                        )
             elif ol == 1:
                 item = np.reshape(item, target_size)
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
                     skimage.io.imsave(
                         os.path.join(
-                            save_path,
-                            f"{file_name}-{weights_name}-{ol+1}-iris.png"),
-                        item[:, :])
+                            save_path, f"{file_name}-{weights_name}-{ol+1}-iris.png"
+                        ),
+                        item[:, :],
+                    )
 
 
-def plot_graph(figure_num, epoch_list, x, y, x_label, y_label, title, legend,
-               save_name):
+def plot_graph(
+    figure_num, epoch_list, x, y, x_label, y_label, title, legend, save_name
+):
     fig_acc = plt.figure(figure_num)
-    plt.plot(epoch_list, x, 'b')
-    plt.plot(epoch_list, y, 'g')
+    plt.plot(epoch_list, x, "b")
+    plt.plot(epoch_list, y, "g")
     plt.ylabel(x_label)
     plt.xlabel(y_label)
-    plt.grid(color='k', linestyle='-', linewidth=1)
+    plt.grid(color="k", linestyle="-", linewidth=1)
     #  plt.ylim(0, 1.0)
     plt.title(title)
-    plt.legend(legend, loc='lower right')
-    fig_acc.savefig(save_name, bbox_inches='tight')
+    plt.legend(legend, loc="lower right")
+    fig_acc.savefig(save_name, bbox_inches="tight")
 
 
 @cli.command()
-@click.argument('experiment_name', required=False)
+@click.argument("experiment_name", required=False)
 def plot(experiment_name):
     # define paths
-    dataset_path = os.path.join('data', experiment_name)
-    training_log_file = os.path.join(dataset_path, 'training.csv')
+    dataset_path = os.path.join("data", experiment_name)
+    training_log_file = os.path.join(dataset_path, "training.csv")
 
-    graphs_dir = os.path.join(dataset_path, 'graphs')
+    graphs_dir = os.path.join(dataset_path, "graphs")
     if not os.path.exists(graphs_dir):
         os.makedirs(graphs_dir)
 
@@ -750,22 +803,50 @@ def plot(experiment_name):
     print(history_data.columns)
 
     # plot graphs
-    plot_graph(1, history_data['epoch'], history_data['output1_acc'],
-               history_data['val_output1_acc'], 'Accuracy', 'Epoch',
-               f"{experiment_name} - Output 1 Model Accuracy",
-               ['Train Accuracy', 'Validation Accuracy'], output1_acc_file)
-    plot_graph(2, history_data['epoch'], history_data['output_iris_acc'],
-               history_data['val_output_iris_acc'], 'Accuracy', 'Epoch',
-               f"{experiment_name} - Output Iris Model Accuracy",
-               ['Train Accuracy', 'Validation Accuracy'], output_iris_acc_file)
-    plot_graph(3, history_data['epoch'], history_data['output1_loss'],
-               history_data['val_output1_loss'], 'Loss', 'Epoch',
-               f"{experiment_name} - Output 1 Model Loss (cce)",
-               ['Train Loss', 'Validation Loss'], output1_loss_file)
-    plot_graph(4, history_data['epoch'], history_data['output_iris_loss'],
-               history_data['val_output_iris_loss'], 'Loss', 'Epoch',
-               f"{experiment_name} - Output Iris Model Loss (diff_iris_area)",
-               ['Train Loss', 'Validation Loss'], output_iris_loss_file)
+    plot_graph(
+        1,
+        history_data["epoch"],
+        history_data["output1_acc"],
+        history_data["val_output1_acc"],
+        "Accuracy",
+        "Epoch",
+        f"{experiment_name} - Output 1 Model Accuracy",
+        ["Train Accuracy", "Validation Accuracy"],
+        output1_acc_file,
+    )
+    plot_graph(
+        2,
+        history_data["epoch"],
+        history_data["output_iris_acc"],
+        history_data["val_output_iris_acc"],
+        "Accuracy",
+        "Epoch",
+        f"{experiment_name} - Output Iris Model Accuracy",
+        ["Train Accuracy", "Validation Accuracy"],
+        output_iris_acc_file,
+    )
+    plot_graph(
+        3,
+        history_data["epoch"],
+        history_data["output1_loss"],
+        history_data["val_output1_loss"],
+        "Loss",
+        "Epoch",
+        f"{experiment_name} - Output 1 Model Loss (cce)",
+        ["Train Loss", "Validation Loss"],
+        output1_loss_file,
+    )
+    plot_graph(
+        4,
+        history_data["epoch"],
+        history_data["output_iris_loss"],
+        history_data["val_output_iris_loss"],
+        "Loss",
+        "Epoch",
+        f"{experiment_name} - Output Iris Model Loss (diff_iris_area)",
+        ["Train Loss", "Validation Loss"],
+        output_iris_loss_file,
+    )
 
     # immediately show plotted graphs
     #  plt.show()
@@ -773,15 +854,15 @@ def plot(experiment_name):
 
 
 @cli.command()
-@click.argument('experiment_name')
-@click.argument('weight')
-@click.argument('test_dir_name')
-@click.argument('batch_normalization')
+@click.argument("experiment_name")
+@click.argument("weight")
+@click.argument("test_dir_name")
+@click.argument("batch_normalization")
 def test(experiment_name, weight, test_dir_name, batch_normalization):
-    cprint(f"> Running `test` command on ", color='green', end='')
-    cprint(f"{experiment_name}", color='green', attrs=['bold'], end=', ')
-    cprint(f"{batch_normalization}", color='grey', attrs=['bold'], end=', ')
-    cprint(f" experiment", color='green')
+    cprint(f"> Running `test` command on ", color="green", end="")
+    cprint(f"{experiment_name}", color="green", attrs=["bold"], end=", ")
+    cprint(f"{batch_normalization}", color="grey", attrs=["bold"], end=", ")
+    cprint(f" experiment", color="green")
     #  experiment_name = "eye_v2-baseline_v8_multiclass-softmax-cce-lw_8421-lr_1e_3"
     #  weight = "98800"
     #  test_dir_name = 'blind_conj'
@@ -789,30 +870,30 @@ def test(experiment_name, weight, test_dir_name, batch_normalization):
     INPUT_SIZE = (256, 256, 9)
     TARGET_SIZE = (256, 256)
     NUM_CLASSES = 3
-    COLOR_MODEL = 'hsv'  # rgb, hsv, ycbcr, gray
+    COLOR_MODEL = "hsv"  # rgb, hsv, ycbcr, gray
     SAVE_EACH_LAYER = False
-    PREDICT_VERBOSE = 1 # 0 = silent, 1
+    PREDICT_VERBOSE = 1  # 0 = silent, 1
 
-    cprint(f"The weight at epoch#", color='green', end='')
-    cprint(f"{weight}", color='green', attrs=['bold'], end='')
-    cprint(f" will be used to predict the images in ", color='green', end='')
-    cprint(f"{test_dir_name}", color='green', attrs=['bold'], end='')
-    cprint(f" directory", color='green')
+    cprint(f"The weight at epoch#", color="green", end="")
+    cprint(f"{weight}", color="green", attrs=["bold"], end="")
+    cprint(f" will be used to predict the images in ", color="green", end="")
+    cprint(f"{test_dir_name}", color="green", attrs=["bold"], end="")
+    cprint(f" directory", color="green")
 
     if BATCH_SIZE > 10:
         answer = input(
-            f"Do you want to continue using BATCH_SIZE={BATCH_SIZE} [y/n] : ")
-        if not answer or answer[0].lower() != 'y':
+            f"Do you want to continue using BATCH_SIZE={BATCH_SIZE} [y/n] : "
+        )
+        if not answer or answer[0].lower() != "y":
             print("You can change the value of BATCH_SIZE in this file")
             exit(1)
 
-    dataset_path = os.path.join('data', experiment_name)
-    weights_dir = os.path.join(dataset_path, 'weights')
+    dataset_path = os.path.join("data", experiment_name)
+    weights_dir = os.path.join(dataset_path, "weights")
     test_set_dir = os.path.join(dataset_path, test_dir_name)
     predicted_set_dirname = f"{test_dir_name}-predicted"
     predicted_set_dir = os.path.join(dataset_path, predicted_set_dirname)
-    prediction_setting_file = os.path.join(predicted_set_dir,
-                                           'prediction_settings.txt')
+    prediction_setting_file = os.path.join(predicted_set_dir, "prediction_settings.txt")
 
     if not os.path.exists(predicted_set_dir):
         os.makedirs(predicted_set_dir)
@@ -820,7 +901,8 @@ def test(experiment_name, weight, test_dir_name, batch_normalization):
     def save_prediction_settings_file():
         with open(prediction_setting_file, "w") as f:
             current_datetime = datetime.datetime.now().strftime(
-                "%Y-%m-%eye_v3_segments_dir %H:%M:%S")
+                "%Y-%m-%eye_v3_segments_dir %H:%M:%S"
+            )
             f.write(f"{current_datetime}\n")
             f.write(f"experiment_name={experiment_name}\n")
             f.write(f"test_dir_name={test_dir_name}\n")
@@ -843,20 +925,20 @@ def test(experiment_name, weight, test_dir_name, batch_normalization):
         pretrained_weights=trained_weights_file,
         input_size=INPUT_SIZE,
         num_classes=NUM_CLASSES,
-        batch_normalization=batch_normalization)
+        batch_normalization=batch_normalization,
+    )
 
     # test the model
     test_data_dict = dict(
-        test_path=test_set_dir,
-        target_size=TARGET_SIZE,
-        color_model=COLOR_MODEL,
+        test_path=test_set_dir, target_size=TARGET_SIZE, color_model=COLOR_MODEL
     )
     test_flow, test_files = get_test_data(**test_data_dict)
     test_gen = test_generator(test_flow, COLOR_MODEL)
     num_test_files = len(test_files)
 
     results = model.predict_generator(
-        test_gen, steps=num_test_files, verbose=PREDICT_VERBOSE)
+        test_gen, steps=num_test_files, verbose=PREDICT_VERBOSE
+    )
     save_result(
         predicted_set_dir,
         results,
@@ -864,21 +946,23 @@ def test(experiment_name, weight, test_dir_name, batch_normalization):
         weights_name=weight,
         target_size=TARGET_SIZE,
         num_class=NUM_CLASSES,
-        save_each_layer=SAVE_EACH_LAYER)
+        save_each_layer=SAVE_EACH_LAYER,
+    )
     cprint(
         f"> `test` command was successfully run, the predicted result will be in ",
-        color='green',
-        end='')
-    cprint(f"{predicted_set_dirname}", color='green', attrs=['bold'])
+        color="green",
+        end="",
+    )
+    cprint(f"{predicted_set_dirname}", color="green", attrs=["bold"])
 
 
 @cli.command()
-@click.argument('dataset')
-@click.argument('experiment_name_replacement')
+@click.argument("dataset")
+@click.argument("experiment_name_replacement")
 def create(dataset, experiment_name_replacement):
     # experiment_name_replacement = "eye_v3-model_v19_multiclass-softmax-cce-lw_1_0.01-hsv-p1-loo_{}-lr_1e_2-bn"
 
-    eye_v3_dir = os.path.join("datasets", dataset) # "eye_v3"
+    eye_v3_dir = os.path.join("datasets", dataset)  # "eye_v3"
     eye_v3_images_dir = os.path.join(eye_v3_dir, "images")
     eye_v3_segments_dir = os.path.join(eye_v3_dir, "segments")
     eye_v3_labels_dir = os.path.join(eye_v3_dir, "labels")
@@ -887,8 +971,14 @@ def create(dataset, experiment_name_replacement):
     filenames = natsort.natsorted(filenames, reverse=False)
     print(filenames)
 
-    segment_directory_names = [o for o in os.listdir(eye_v3_segments_dir) if os.path.isdir(os.path.join(eye_v3_segments_dir, o))]
-    segment_directories = [os.path.join(eye_v3_segments_dir, d) for d in segment_directory_names]
+    segment_directory_names = [
+        o
+        for o in os.listdir(eye_v3_segments_dir)
+        if os.path.isdir(os.path.join(eye_v3_segments_dir, o))
+    ]
+    segment_directories = [
+        os.path.join(eye_v3_segments_dir, d) for d in segment_directory_names
+    ]
 
     for (idx, filename) in enumerate(filenames, 0):
         sub_exp_path = os.path.join("data", experiment_name_replacement.format(idx + 1))
@@ -905,12 +995,18 @@ def create(dataset, experiment_name_replacement):
         train_images_path = os.path.join(train_path, "images")
         train_labels_path = os.path.join(train_path, "labels")
         train_segments_path = os.path.join(train_path, "segments")
-        train_segment_paths = [os.path.join(train_segments_path, segment_name) for segment_name in segment_directory_names]
+        train_segment_paths = [
+            os.path.join(train_segments_path, segment_name)
+            for segment_name in segment_directory_names
+        ]
 
         validation_images_path = os.path.join(validation_path, "images")
         validation_labels_path = os.path.join(validation_path, "labels")
         validation_segments_path = os.path.join(validation_path, "segments")
-        validation_segment_paths = [os.path.join(validation_segments_path, segment_name) for segment_name in segment_directory_names]
+        validation_segment_paths = [
+            os.path.join(validation_segments_path, segment_name)
+            for segment_name in segment_directory_names
+        ]
 
         def create_directory(path):
             try:
@@ -938,24 +1034,38 @@ def create(dataset, experiment_name_replacement):
             shutil.copy(src, dest)
 
         for segment_directory_name in segment_directory_names:
-            segment_directory_src_path = os.path.join(eye_v3_segments_dir, segment_directory_name)
-            train_segment_directory_dest_path = os.path.join(train_segments_path, segment_directory_name)
+            segment_directory_src_path = os.path.join(
+                eye_v3_segments_dir, segment_directory_name
+            )
+            train_segment_directory_dest_path = os.path.join(
+                train_segments_path, segment_directory_name
+            )
             for image_filename in train_images_file_list:
                 image_name = os.path.splitext(image_filename)[0]
                 image_filename = f"{image_name}.png"
-                copy_file(segment_directory_src_path, train_segment_directory_dest_path, image_filename)
-            validation_segment_directory_dest_path = os.path.join(validation_segments_path, segment_directory_name)
+                copy_file(
+                    segment_directory_src_path,
+                    train_segment_directory_dest_path,
+                    image_filename,
+                )
+            validation_segment_directory_dest_path = os.path.join(
+                validation_segments_path, segment_directory_name
+            )
             validation_segment_filename = os.path.splitext(validation_images_file)[0]
             validation_segment_path = f"{validation_segment_filename}.png"
-            copy_file(segment_directory_src_path, validation_segment_directory_dest_path, validation_segment_path)
+            copy_file(
+                segment_directory_src_path,
+                validation_segment_directory_dest_path,
+                validation_segment_path,
+            )
 
         for img in train_images_file_list:
             copy_file(eye_v3_images_dir, train_images_path, img)
             copy_file(eye_v3_labels_dir, train_labels_path, img)
 
-        copy_file(eye_v3_images_dir, validation_images_path, validation_images_file) 
-        copy_file(eye_v3_labels_dir, validation_labels_path, validation_images_file) 
+        copy_file(eye_v3_images_dir, validation_images_path, validation_images_file)
+        copy_file(eye_v3_labels_dir, validation_labels_path, validation_images_file)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     cli()
