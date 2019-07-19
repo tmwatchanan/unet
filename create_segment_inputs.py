@@ -6,6 +6,10 @@ from model_v12_cv import create_model as v12_create_model
 from model_v12_cv import get_test_data as v12_get_test_data
 from model_v12_cv import test_generator as v12_test_generator
 from model_v12_cv import save_result as v12_save_result
+from model_v13_cv import create_model as v13_create_model
+from model_v13_cv import get_test_data as v13_get_test_data
+from model_v13_cv import test_generator as v13_test_generator
+from model_v13_cv import save_result as v13_save_result
 from model_v15_cv import create_model as v15_create_model
 from model_v15_cv import get_test_data as v15_get_test_data
 from model_v15_cv import test_generator as v15_test_generator
@@ -19,24 +23,48 @@ def create():
     PREDICT_VERBOSE = 1  # 0 = silent, 1
     BATCH_NORMALIZATION = True
 
-    dataset_dir = os.path.join("datasets", "eye_v5-s1")
+    dataset_dir = os.path.join("datasets", "eye_v5-pass_1")
 
     segment_inputs = [
-        {  # s1
-            "name": "eye_v5-model_v12_multiclass-softmax-cce-lw_1_0-rgb-fold_{0}-lr_1e_2-bn",
-            "color_model": "rgb",
-            "weights": [4138, 4468, 3396, 3445],
+        # {  # s1
+        #     "name": "eye_v5-model_v12_multiclass-softmax-cce-lw_1_0-rgb-fold_{0}-lr_1e_2-bn",
+        #     "color_model": "rgb",
+        #     "weights": [4138, 4468, 3396, 3445],
+        #     "input_size": (256, 256, 3),
+        #     "prefix": "v12",
+        #     "segment_id": "s1"
+        # },
+        {  # s2
+            "name": "eye_v5-model_v12_multiclass-softmax-cce-lw_1_0-hsv-fold_{0}-lr_1e_2-bn",
+            "color_model": "hsv",
+            "weights": [3722, 4884, 4971, 4283],
             "input_size": (256, 256, 3),
             "prefix": "v12",
-            "segment_id": "s1"
+            "segment_id": "s2"
         },
-        {  # s3
-            "name": "eye_v5-model_v15_multiclass-softmax-cce-lw_1_0-hsv-fold_{0}-lr_1e_2-bn",
+        # {  # s3
+        #     "name": "eye_v5-model_v15_multiclass-softmax-cce-lw_1_0-hsv-fold_{0}-lr_1e_2-bn",
+        #     "color_model": "hsv",
+        #     "weights": [3874, 3437, 4470, 4996],
+        #     "input_size": (256, 256, 2),
+        #     "prefix": "v15",
+        #     "segment_id": "s3"
+        # },
+        {  # s4
+            "name": "eye_v5-model_v13_multiclass-softmax-cce-lw_1_0-rgb-fold_{0}-lr_1e_2-bn",
+            "color_model": "rgb",
+            "weights": [4909, 4619, 4692, 4399],
+            "input_size": (256, 256, 5),
+            "prefix": "v13",
+            "segment_id": "s4"
+        },
+        {  # s5
+            "name": "eye_v5-model_v13_multiclass-softmax-cce-lw_1_0-hsv-fold_{0}-lr_1e_2-bn",
             "color_model": "hsv",
-            "weights": [3874, 3437, 4470, 4996],
-            "input_size": (256, 256, 2),
-            "prefix": "v15",
-            "segment_id": "s3"
+            "weights": [4684, 4513, 4111, 4886],
+            "input_size": (256, 256, 5),
+            "prefix": "v13",
+            "segment_id": "s5"
         },
     ]
     for s, segment_input in enumerate(segment_inputs):
