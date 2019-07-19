@@ -657,43 +657,40 @@ def save_result(
     num_class=3,
     save_each_layer=False,
 ):
-    for ol in range(len(npyfile)):
-        layer_output = npyfile[ol]
-        for i, item in enumerate(layer_output):
-            file_name = os.path.split(file_names[i])[1]
-            #  file_name=file_names[i]
-            if ol == 0:
-                output_shape = (target_size[0], target_size[1], num_class)
-                item = np.reshape(item, output_shape)
-                visualized_img = max_rgb_filter(item)
-                visualized_img[visualized_img > 0] = 1
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    skimage.io.imsave(
-                        os.path.join(
-                            save_path, f"{file_name}-{weights_name}-{ol+1}-merged.png"
-                        ),
-                        visualized_img,
-                    )
-                    if save_each_layer:
-                        skimage.io.imsave(
-                            os.path.join(
-                                save_path, f"{file_name}-{weights_name}-{ol+1}-0.png"
-                            ),
-                            item[:, :, 0],
-                        )
-                        skimage.io.imsave(
-                            os.path.join(
-                                save_path, f"{file_name}-{weights_name}-{ol+1}-1.png"
-                            ),
-                            item[:, :, 1],
-                        )
-                        skimage.io.imsave(
-                            os.path.join(
-                                save_path, f"{file_name}-{weights_name}-{ol+1}-2.png"
-                            ),
-                            item[:, :, 2],
-                        )
+    for i, item in enumerate(npyfile):
+        file_name = os.path.split(file_names[i])[1]
+        #  file_name=file_names[i]
+        output_shape = (target_size[0], target_size[1], num_class)
+        item = np.reshape(item, output_shape)
+        visualized_img = max_rgb_filter(item)
+        visualized_img[visualized_img > 0] = 1
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            skimage.io.imsave(
+                os.path.join(
+                    save_path, f"{file_name}-{weights_name}-merged.bmp"
+                ),
+                visualized_img,
+            )
+            if save_each_layer:
+                skimage.io.imsave(
+                    os.path.join(
+                        save_path, f"{file_name}-{weights_name}-0.bmp"
+                    ),
+                    item[:, :, 0],
+                )
+                skimage.io.imsave(
+                    os.path.join(
+                        save_path, f"{file_name}-{weights_name}-1.bmp"
+                    ),
+                    item[:, :, 1],
+                )
+                skimage.io.imsave(
+                    os.path.join(
+                        save_path, f"{file_name}-{weights_name}-2.bmp"
+                    ),
+                    item[:, :, 2],
+                )
 
 
 def plot_graph(
@@ -774,7 +771,7 @@ def predict(experiment_name, weight, color_model, batch_normalization, test_dir_
         end=", ",
     )
     cprint(f" experiment", color="green")
-    INPUT_SIZE = (256, 256, 3 + 6)
+    INPUT_SIZE = (256, 256, 3)
     TARGET_SIZE = (256, 256)
     NUM_CLASSES = 3
     SAVE_EACH_LAYER = False
@@ -880,7 +877,7 @@ def evaluate(ctx):
         + COLOR_MODEL
         + "-fold_{0}"
         + "-lr_"
-        + "1e_2_4"
+        + "1e_4"
         + batch_normalization_info
     )
     training_validation_evaluation = evaluate_training_and_validation(
@@ -914,7 +911,7 @@ def evaluate(ctx):
             num_test += len(files)
         print(f"num_test={num_test}")
 
-        trained_weights_file = f"{epoch:08d}.hdf5"
+        trained_weights_file = f"unet_best.hdf5"
         trained_weights_file = os.path.join(weights_dir, trained_weights_file)
 
         learning_rate = float(LEARNING_RATE.replace("_", "-"))
@@ -1034,12 +1031,12 @@ def evaluate_training_and_validation(experiment_name_template, fold_list):
         training_log = pd.read_csv(training_log_file)
         acc = training_log["acc"]
         acc = [
-            a if ((i+1) % 100 == 0) or ((i+1) >= 7000 and (i+1) <= 7486) else 0.0
+            a
             for i, a in enumerate(acc)
         ]
         val_acc = training_log["val_acc"]
         val_acc = [
-            a if ((i+1) % 100 == 0) or ((i+1) >= 7000 and (i+1) <= 7486) else 0.0
+            a
             for i, a in enumerate(val_acc)
         ]
 
