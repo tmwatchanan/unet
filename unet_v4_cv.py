@@ -911,7 +911,7 @@ def evaluate(ctx):
             num_test += len(files)
         print(f"num_test={num_test}")
 
-        trained_weights_file = f"unet_v2_best.hdf5"
+        trained_weights_file = f"unet_v4_best.hdf5"
         trained_weights_file = os.path.join(weights_dir, trained_weights_file)
 
         learning_rate = float(LEARNING_RATE.replace("_", "-"))
