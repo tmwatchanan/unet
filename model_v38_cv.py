@@ -195,21 +195,21 @@ def train(ctx):
     DATASET_NAME = "eye_v5"
     dataset = Dataset(DATASET_NAME)
 
-    for fold in range(1, 4 + 1):
+    for fold in range(3, 4 + 1):
         cprint("> ", end="")
         cprint("`train`", color="green", end="")
         cprint(" function")
         MODEL_NAME = "model_v38_multiclass"
         MODEL_INFO = f"softmax-cce-lw_1_0-fold_{fold}"
         BATCH_NORMALIZATION = True
-        LEARNING_RATE = "1e_2"
+        LEARNING_RATE = "1e_3"
         EXPERIMENT_NAME = (
             f"{DATASET_NAME}-{MODEL_NAME}-{MODEL_INFO}-lr_{LEARNING_RATE}"
             + ("-bn" if BATCH_NORMALIZATION else "")
         )
         TEST_DIR_NAME = "test"
         EPOCH_START = 0
-        EPOCH_END = 100
+        EPOCH_END = 30
         MODEL_PERIOD = 1
         INPUT_SIZE = (256, 256, 15)
         TARGET_SIZE = (256, 256)
@@ -422,16 +422,13 @@ def create_model(
         name="output1",
     )(conv1)
 
-    output_iris = Lambda(lambda x: x[:, :, :, 0])(output1)
-    output_iris = ThresholdedReLU(theta=0.5, name="output_iris")(output_iris)
-
-    model = Model(inputs=[input1], outputs=[output1, output_iris])
+    model = Model(inputs=[input1], outputs=[output1])
 
     model.compile(
         optimizer=Adam(lr=learning_rate),
-        loss={"output1": "categorical_crossentropy", "output_iris": diff_iris_area},
-        loss_weights={"output1": 1, "output_iris": 0},
-        metrics={"output1": ["accuracy"], "output_iris": ["accuracy"]},
+        loss={"output1": "categorical_crossentropy"},
+        loss_weights={"output1": 1},
+        metrics={"output1": ["accuracy"]},
     )
 
     if is_summary:
@@ -619,7 +616,7 @@ def train_generator(image_mask_pair_flow):
     for (segment1_batch, segment2_batch, segment3_batch, segment4_batch, segment5_batch, mask_batch) in image_mask_pair_flow:
         processed_img_array = preprocess_images_in_batch(segment1_batch, segment2_batch, segment3_batch, segment4_batch, segment5_batch)
         mask, mask_iris = preprocess_mask_input(mask_batch)
-        yield ([processed_img_array], [mask, mask_iris])
+        yield ([processed_img_array], [mask])
 
 
 def test_generator(test_flow):
@@ -725,8 +722,8 @@ def plot(experiment_name):
     plot_graph(
         1,
         history_data["epoch"],
-        history_data["output1_acc"],
-        history_data["val_output1_acc"],
+        history_data["acc"],
+        history_data["val_acc"],
         "Accuracy",
         "Epoch",
         f"{experiment_name} - Output 1 Model Accuracy",
@@ -736,8 +733,8 @@ def plot(experiment_name):
     plot_graph(
         2,
         history_data["epoch"],
-        history_data["output1_loss"],
-        history_data["val_output1_loss"],
+        history_data["loss"],
+        history_data["val_loss"],
         "Loss",
         "Epoch",
         f"{experiment_name} - Output 1 Model Loss (cce)",
@@ -868,13 +865,13 @@ def evaluate(ctx):
     MODEL_NAME = "model_v38_multiclass"
     MODEL_INFO = "softmax-cce-lw_1_0"
     BATCH_NORMALIZATION = True
-    LEARNING_RATE = "1e_2"
+    LEARNING_RATE = "1e_3"
     batch_size = dataset.validation_batch_size
     evaluate_steps = dataset.validation_steps_per_epoch
     INPUT_SIZE = (256, 256, 15)
     TARGET_SIZE = (256, 256)
     NUM_CLASSES = 3
-    fold_list = range(1, 1 + 1)
+    fold_list = range(1, 4 + 1)
     batch_normalization_info = "-bn" if BATCH_NORMALIZATION else ""
     experiment_name_template = (
         DATASET_NAME
@@ -943,7 +940,7 @@ def evaluate(ctx):
         test_gen = train_generator(test_flow)
         groundtruths = []
         step = 0
-        for (_,), (mask_batch, _) in test_gen:
+        for (_,), (mask_batch,) in test_gen:
             for mask in mask_batch:
                 groundtruths.append(mask)
             step += 1
@@ -954,7 +951,7 @@ def evaluate(ctx):
         )
 
         label_image_pairs = evaluate_classes(
-            predicted_results[0], groundtruths
+            predicted_results, groundtruths
         )  # [0] images, [1] masks
         for p_class in classes:
             folds_label_image_pairs[p_class]["label"] = np.concatenate(
@@ -979,7 +976,7 @@ def evaluate(ctx):
         )
         # print(model.metrics_names) # [3] output1_acc
         print(evaluation)
-        training_validation_evaluation[fold - 1]["test"] = evaluation[3]
+        training_validation_evaluation[fold - 1]["test"] = evaluation[1]
 
     for p_class in classes:
         precision = metrics.precision_score(
@@ -1025,8 +1022,8 @@ def evaluate_training_and_validation(experiment_name_template, fold_list):
         training_log_file = os.path.join(experiment_name_dir, "training.csv")
 
         training_log = pd.read_csv(training_log_file)
-        output1_acc = training_log["output1_acc"]
-        val_output1_acc = training_log["val_output1_acc"]
+        output1_acc = training_log["acc"]
+        val_output1_acc = training_log["val_acc"]
 
         def find_best_accuracy(accuracy_values):
             arg_max_output1_acc = np.argmax(np.array(accuracy_values))
