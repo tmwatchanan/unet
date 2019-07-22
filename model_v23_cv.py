@@ -588,7 +588,7 @@ def get_train_data(
         image_color
     )
     image_datagen = ImageDataGenerator(**image_aug_dict)
-    segment_datagen = ImageDataGenerator()
+    segment_datagen = ImageDataGenerator(**image_aug_dict)
     mask_datagen = ImageDataGenerator(**aug_dict)
     image_color_mode = "grayscale" if image_color == "gray" else "rgb"
     mask_color_mode = "grayscale" if mask_color == "gray" else "rgb"
@@ -614,7 +614,9 @@ def get_train_data(
         batch_size=batch_size,
         save_to_dir=save_to_dir,
         save_prefix=image_save_prefix,
-        seed=seed)
+        seed=seed,
+        shuffle=shuffle,
+    )
     segment2_flow = segment_datagen.flow_from_directory(
         segments_path,
         classes=['s3'],
@@ -624,7 +626,9 @@ def get_train_data(
         batch_size=batch_size,
         save_to_dir=save_to_dir,
         save_prefix=image_save_prefix,
-        seed=seed)
+        seed=seed,
+        shuffle=shuffle,
+    )
     mask_flow = mask_datagen.flow_from_directory(
         train_path,
         classes=[mask_folder],

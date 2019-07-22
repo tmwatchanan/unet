@@ -195,7 +195,7 @@ def train(ctx):
     DATASET_NAME = "eye_v5"
     dataset = Dataset(DATASET_NAME)
 
-    for fold in range(1, 4 + 1):
+    for fold in range(1, 1 + 1):
         cprint("> ", end="")
         cprint("`train`", color="green", end="")
         cprint(" function")
@@ -208,7 +208,7 @@ def train(ctx):
             + ("-bn" if BATCH_NORMALIZATION else "")
         )
         TEST_DIR_NAME = "test"
-        EPOCH_START = 0
+        EPOCH_START = 1801
         EPOCH_END = 5000
         MODEL_PERIOD = 1
         INPUT_SIZE = (256, 256, 15)
@@ -408,10 +408,10 @@ def create_model(
 
     output1 = Conv2D(
         num_classes,
-        3,
+        1,
         activation="softmax",
         padding="same",
-        kernel_initializer="he_normal",
+        kernel_initializer="ones",
         name="output1",
     )(input1)
 
@@ -465,9 +465,8 @@ def get_train_data(
     seed=1,
     shuffle=True,
 ):
-    segment_datagen = ImageDataGenerator()
+    segment_datagen = ImageDataGenerator(**aug_dict)
     mask_datagen = ImageDataGenerator(**aug_dict)
-
 
     segments_path = os.path.join(train_path, 'segments')
     segment1_flow = segment_datagen.flow_from_directory(
@@ -479,7 +478,9 @@ def get_train_data(
         batch_size=batch_size,
         save_to_dir=save_to_dir,
         save_prefix=image_save_prefix,
-        seed=seed)
+        seed=seed,
+        shuffle=shuffle,
+    )
     segment2_flow = segment_datagen.flow_from_directory(
         segments_path,
         classes=['s2'],
@@ -489,7 +490,9 @@ def get_train_data(
         batch_size=batch_size,
         save_to_dir=save_to_dir,
         save_prefix=image_save_prefix,
-        seed=seed)
+        seed=seed,
+        shuffle=shuffle,
+    )
     segment3_flow = segment_datagen.flow_from_directory(
         segments_path,
         classes=['s3'],
@@ -499,7 +502,9 @@ def get_train_data(
         batch_size=batch_size,
         save_to_dir=save_to_dir,
         save_prefix=image_save_prefix,
-        seed=seed)
+        seed=seed,
+        shuffle=shuffle,
+    )
     segment4_flow = segment_datagen.flow_from_directory(
         segments_path,
         classes=['s4'],
@@ -509,7 +514,9 @@ def get_train_data(
         batch_size=batch_size,
         save_to_dir=save_to_dir,
         save_prefix=image_save_prefix,
-        seed=seed)
+        seed=seed,
+        shuffle=shuffle,
+    )
     segment5_flow = segment_datagen.flow_from_directory(
         segments_path,
         classes=['s5'],
@@ -519,7 +526,9 @@ def get_train_data(
         batch_size=batch_size,
         save_to_dir=save_to_dir,
         save_prefix=image_save_prefix,
-        seed=seed)
+        seed=seed,
+        shuffle=shuffle,
+    )
     mask_flow = mask_datagen.flow_from_directory(
         train_path,
         classes=[mask_folder],
@@ -858,7 +867,7 @@ def evaluate(ctx):
     INPUT_SIZE = (256, 256, 15)
     TARGET_SIZE = (256, 256)
     NUM_CLASSES = 3
-    fold_list = range(1, 4 + 1)
+    fold_list = range(1, 1 + 1)
     batch_normalization_info = "-bn" if BATCH_NORMALIZATION else ""
     experiment_name_template = (
         DATASET_NAME

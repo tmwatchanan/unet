@@ -526,9 +526,8 @@ def get_train_data(
     seed=1,
     shuffle=True,
 ):
-    segment_datagen = ImageDataGenerator()
+    segment_datagen = ImageDataGenerator(**aug_dict)
     mask_datagen = ImageDataGenerator(**aug_dict)
-
 
     segments_path = os.path.join(train_path, 'segments')
     segment1_flow = segment_datagen.flow_from_directory(
@@ -540,7 +539,9 @@ def get_train_data(
         batch_size=batch_size,
         save_to_dir=save_to_dir,
         save_prefix=image_save_prefix,
-        seed=seed)
+        seed=seed,
+        shuffle=shuffle,
+    )
     segment2_flow = segment_datagen.flow_from_directory(
         segments_path,
         classes=['s2'],
@@ -550,7 +551,9 @@ def get_train_data(
         batch_size=batch_size,
         save_to_dir=save_to_dir,
         save_prefix=image_save_prefix,
-        seed=seed)
+        seed=seed,
+        shuffle=shuffle,
+    )
     segment3_flow = segment_datagen.flow_from_directory(
         segments_path,
         classes=['s3'],
@@ -560,7 +563,9 @@ def get_train_data(
         batch_size=batch_size,
         save_to_dir=save_to_dir,
         save_prefix=image_save_prefix,
-        seed=seed)
+        seed=seed,
+        shuffle=shuffle,
+    )
     segment4_flow = segment_datagen.flow_from_directory(
         segments_path,
         classes=['s4'],
@@ -570,7 +575,9 @@ def get_train_data(
         batch_size=batch_size,
         save_to_dir=save_to_dir,
         save_prefix=image_save_prefix,
-        seed=seed)
+        seed=seed,
+        shuffle=shuffle,
+    )
     segment5_flow = segment_datagen.flow_from_directory(
         segments_path,
         classes=['s5'],
@@ -580,7 +587,9 @@ def get_train_data(
         batch_size=batch_size,
         save_to_dir=save_to_dir,
         save_prefix=image_save_prefix,
-        seed=seed)
+        seed=seed,
+        shuffle=shuffle,
+    )
     mask_flow = mask_datagen.flow_from_directory(
         train_path,
         classes=[mask_folder],
