@@ -627,9 +627,9 @@ def create_model(
 
     conv_26 = Conv2D(num_classes, (1, 1), padding="valid")(conv_25)
     conv_26 = BatchNormalization()(conv_26)
-    conv_26 = Reshape(
-            (input_size[0]*input_size[1], num_classes),
-            input_shape=(input_size[0], input_size[1], num_classes))(conv_26)
+    # conv_26 = Reshape(
+    #         (input_size[0]*input_size[1], num_classes),
+    #         input_shape=(input_size[0], input_size[1], num_classes))(conv_26)
 
     outputs = Activation("softmax")(conv_26)
 
