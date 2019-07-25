@@ -865,7 +865,7 @@ def evaluate(ctx):
     INPUT_SIZE = (256, 256, 3)
     TARGET_SIZE = (256, 256)
     NUM_CLASSES = 3
-    fold_list = range(1, 2 + 1)
+    fold_list = range(1, 4 + 1)
     batch_normalization_info = "-bn" if BATCH_NORMALIZATION else ""
     experiment_name_template = (
         DATASET_NAME
