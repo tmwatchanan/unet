@@ -21,142 +21,9 @@ from check_accuracy import (
     preprocess_image,
     read_groundtruth,
 )
-from utils import max_rgb_filter
+from utils import max_rgb_filter, get_weight_filename
+from experiment_data import get_experiment_pool
 
-experiment_pool = {
-    "eye_v5-model_v12-rgb": {
-        "abbreviation": "s1",
-        "input_size": (256, 256, 3),
-        "color_model": "rgb",
-        "file": "model_v12_cv",
-        "experiments": [
-            (
-                "eye_v5-model_v12_multiclass-softmax-cce-lw_1_0-rgb-fold_1-lr_1e_2-bn",
-                4138,
-            ),
-            (
-                "eye_v5-model_v12_multiclass-softmax-cce-lw_1_0-rgb-fold_2-lr_1e_2-bn",
-                4468,
-            ),
-            (
-                "eye_v5-model_v12_multiclass-softmax-cce-lw_1_0-rgb-fold_3-lr_1e_2-bn",
-                3396,
-            ),
-            (
-                "eye_v5-model_v12_multiclass-softmax-cce-lw_1_0-rgb-fold_4-lr_1e_2-bn",
-                3445,
-            ),
-        ],
-    },
-    "eye_v5-model_v12-hsv": {
-        "abbreviation": "s2",
-        "input_size": (256, 256, 3),
-        "color_model": "hsv",
-        "file": "model_v12_cv",
-        "experiments": [
-            (
-                "eye_v5-model_v12_multiclass-softmax-cce-lw_1_0-hsv-fold_1-lr_1e_2-bn",
-                3722,
-            ),
-            (
-                "eye_v5-model_v12_multiclass-softmax-cce-lw_1_0-hsv-fold_2-lr_1e_2-bn",
-                4884,
-            ),
-            (
-                "eye_v5-model_v12_multiclass-softmax-cce-lw_1_0-hsv-fold_3-lr_1e_2-bn",
-                4971,
-            ),
-            (
-                "eye_v5-model_v12_multiclass-softmax-cce-lw_1_0-hsv-fold_4-lr_1e_2-bn",
-                4283,
-            ),
-        ],
-    },
-    "eye_v5-model_v15-hsv": {
-        "abbreviation": "s3",
-        "input_size": (256, 256, 2),
-        "color_model": "hsv",
-        "file": "model_v15_cv",
-        "experiments": [
-            (
-                "eye_v5-model_v15_multiclass-softmax-cce-lw_1_0-hsv-fold_1-lr_1e_2-bn",
-                2637,
-            ),
-            (
-                "eye_v5-model_v15_multiclass-softmax-cce-lw_1_0-hsv-fold_2-lr_1e_2-bn",
-                4811,
-            ),
-            (
-                "eye_v5-model_v15_multiclass-softmax-cce-lw_1_0-hsv-fold_3-lr_1e_2-bn",
-                4122,
-            ),
-            (
-                "eye_v5-model_v15_multiclass-softmax-cce-lw_1_0-hsv-fold_4-lr_1e_2-bn",
-                4388,
-            ),
-        ],
-    },
-    "eye_v5-model_v13-rgb": {
-        "abbreviation": "s4",
-        "input_size": (256, 256, 5),
-        "color_model": "rgb",
-        "file": "model_v13_cv",
-        "experiments": [
-            (
-                "eye_v5-model_v13_multiclass-softmax-cce-lw_1_0-rgb-fold_1-lr_1e_2-bn",
-                4909,
-            ),
-            (
-                "eye_v5-model_v13_multiclass-softmax-cce-lw_1_0-rgb-fold_2-lr_1e_2-bn",
-                4619,
-            ),
-            (
-                "eye_v5-model_v13_multiclass-softmax-cce-lw_1_0-rgb-fold_3-lr_1e_2-bn",
-                4692,
-            ),
-            (
-                "eye_v5-model_v13_multiclass-softmax-cce-lw_1_0-rgb-fold_4-lr_1e_2-bn",
-                4399,
-            ),
-        ],
-    },
-    "eye_v5-model_v13-hsv": {
-        "abbreviation": "s5",
-        "input_size": (256, 256, 5),
-        "color_model": "hsv",
-        "file": "model_v13_cv",
-        "experiments": [
-            (
-                "eye_v5-model_v13_multiclass-softmax-cce-lw_1_0-hsv-fold_1-lr_1e_2-bn",
-                4684,
-            ),
-            (
-                "eye_v5-model_v13_multiclass-softmax-cce-lw_1_0-hsv-fold_2-lr_1e_2-bn",
-                4513,
-            ),
-            (
-                "eye_v5-model_v13_multiclass-softmax-cce-lw_1_0-hsv-fold_3-lr_1e_2-bn",
-                4111,
-            ),
-            (
-                "eye_v5-model_v13_multiclass-softmax-cce-lw_1_0-hsv-fold_4-lr_1e_2-bn",
-                4886,
-            ),
-        ],
-    },
-    "eye_v5-model_v28-hsv": {
-        "abbreviation": "s6",
-        "input_size": (256, 256, 8),
-        "color_model": None,
-        "file": "model_v28_cv",
-        "experiments": [
-            ("eye_v5-model_v28_multiclass-softmax-cce-lw_1_0-fold_1-lr_1e_2-bn", 4186),
-            ("eye_v5-model_v28_multiclass-softmax-cce-lw_1_0-fold_2-lr_1e_2-bn", 4717),
-            ("eye_v5-model_v28_multiclass-softmax-cce-lw_1_0-fold_3-lr_1e_2-bn", 4737),
-            ("eye_v5-model_v28_multiclass-softmax-cce-lw_1_0-fold_4-lr_1e_2-bn", 4185),
-        ],
-    },
-}
 
 create_model = None
 get_test_data = None
@@ -189,19 +56,20 @@ def predict():
     BATCH_NORMALIZATION = True
     PREDICT_VERBOSE = 1  # 0 = silent, 1
 
-    experiment_names = ["s1", "s2", "s3", "s4", "s5"]
+    # experiment_names = ["s1", "s2", "s3", "s4", "s5"]
+    experiment_names = ["s31", "u4", "sg1"]
 
     data_path = "data"
     dataset_path = os.path.join("datasets", "eye_v5-pass_1")
 
-    for fold in range(1, 4 + 1):
+    for fold in range(4, 4 + 1):
 
         test_dir_names = ["test", "train", "validation"]
         for test_dir_name in test_dir_names:
 
             for NAME in experiment_pool:
                 experiment = experiment_pool[NAME]
-                if experiment["abbreviation"] not in experiment_names:
+                if experiment.get("abbreviation") not in experiment_names:
                     continue
 
                 import_model_functions(experiment["file"])
@@ -220,7 +88,7 @@ def predict():
                 """
                 model_path = os.path.join(data_path, model_name)
                 weights_dir = os.path.join(model_path, "weights")
-                trained_weights_filename = f"{epoch:08d}.hdf5"
+                trained_weights_filename = get_weight_filename(experiment, NAME, epoch)
                 trained_weights_file = os.path.join(
                     weights_dir, trained_weights_filename
                 )
@@ -253,6 +121,10 @@ def predict():
                 )
                 if not os.path.exists(predicted_set_dir):
                     os.makedirs(predicted_set_dir)
+                if "unet" in NAME or "segnet" in NAME:
+                    multiple_outputs = False
+                else:
+                    multiple_outputs = True
                 save_result(
                     predicted_set_dir,
                     results,
@@ -260,30 +132,40 @@ def predict():
                     weights_name=epoch,
                     target_size=TARGET_SIZE,
                     num_class=NUM_CLASSES,
+                    multiple_outputs=multiple_outputs,
                 )
 
     cprint(f"> predict confidence outputs succesfully")
 
 
 def save_result(
-    save_path, npyfile, file_names, weights_name, target_size=(256, 256), num_class=3
+    save_path,
+    npyfile,
+    file_names,
+    weights_name,
+    target_size=(256, 256),
+    num_class=3,
+    multiple_outputs=True,
 ):
-    for ol in range(len(npyfile)):
+    ol = 0
+    if multiple_outputs:
         layer_output = npyfile[ol]
-        for i, item in enumerate(layer_output):
-            file_name = os.path.split(file_names[i])[1]
-            if ol == 0:
-                output_shape = (target_size[0], target_size[1], num_class)
-                item = np.reshape(item, output_shape)
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    skimage.io.imsave(
-                        os.path.join(
-                            save_path, f"{file_name}-{weights_name}-{ol+1}-merged.png"
-                        ),
-                        item,
-                    )
+    else:
+        layer_output = npyfile
+    for i, item in enumerate(layer_output):
+        file_name = os.path.split(file_names[i])[1]
+        output_shape = (target_size[0], target_size[1], num_class)
+        item = np.reshape(item, output_shape)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            skimage.io.imsave(
+                os.path.join(
+                    save_path, f"{file_name}-{weights_name}-{ol+1}-merged.png"
+                ),
+                item,
+            )
 
 
 if __name__ == "__main__":
+    experiment_pool = get_experiment_pool()
     predict()
