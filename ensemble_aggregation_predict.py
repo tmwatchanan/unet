@@ -20,155 +20,15 @@ from check_accuracy import (
     preprocess_image,
     read_groundtruth,
 )
-from utils import max_rgb_filter
+from utils import max_rgb_filter, get_weight_filename
 from ensemble_vote import evaluate_classes
+from experiment_data import get_experiment_pool
 
 
 class EnsembleMode(Enum):
     summation = 1
     product = 2
 
-
-experiment_pool = {
-    "eye_v5-model_v12-rgb": {
-        "abbreviation": "s1",
-        "input_size": (256, 256, 3),
-        "color_model": "rgb",
-        "file": "model_v12_cv",
-        "dataset": "eye_v5",
-        "experiments": [
-            (
-                "eye_v5-model_v12_multiclass-softmax-cce-lw_1_0-rgb-fold_1-lr_1e_2-bn",
-                4138,
-            ),
-            (
-                "eye_v5-model_v12_multiclass-softmax-cce-lw_1_0-rgb-fold_2-lr_1e_2-bn",
-                4468,
-            ),
-            (
-                "eye_v5-model_v12_multiclass-softmax-cce-lw_1_0-rgb-fold_3-lr_1e_2-bn",
-                3396,
-            ),
-            (
-                "eye_v5-model_v12_multiclass-softmax-cce-lw_1_0-rgb-fold_4-lr_1e_2-bn",
-                3445,
-            ),
-        ],
-    },
-    "eye_v5-model_v12-hsv": {
-        "abbreviation": "s2",
-        "input_size": (256, 256, 3),
-        "color_model": "hsv",
-        "file": "model_v12_cv",
-        "dataset": "eye_v5",
-        "experiments": [
-            (
-                "eye_v5-model_v12_multiclass-softmax-cce-lw_1_0-hsv-fold_1-lr_1e_2-bn",
-                3722,
-            ),
-            (
-                "eye_v5-model_v12_multiclass-softmax-cce-lw_1_0-hsv-fold_2-lr_1e_2-bn",
-                4884,
-            ),
-            (
-                "eye_v5-model_v12_multiclass-softmax-cce-lw_1_0-hsv-fold_3-lr_1e_2-bn",
-                4971,
-            ),
-            (
-                "eye_v5-model_v12_multiclass-softmax-cce-lw_1_0-hsv-fold_4-lr_1e_2-bn",
-                4283,
-            ),
-        ],
-    },
-    "eye_v5-model_v15-hsv": {
-        "abbreviation": "s3",
-        "input_size": (256, 256, 2),
-        "color_model": "hsv",
-        "file": "model_v15_cv",
-        "dataset": "eye_v5",
-        "experiments": [
-            (
-                "eye_v5-model_v15_multiclass-softmax-cce-lw_1_0-hsv-fold_1-lr_1e_2-bn",
-                2637,
-            ),
-            (
-                "eye_v5-model_v15_multiclass-softmax-cce-lw_1_0-hsv-fold_2-lr_1e_2-bn",
-                4811,
-            ),
-            (
-                "eye_v5-model_v15_multiclass-softmax-cce-lw_1_0-hsv-fold_3-lr_1e_2-bn",
-                4122,
-            ),
-            (
-                "eye_v5-model_v15_multiclass-softmax-cce-lw_1_0-hsv-fold_4-lr_1e_2-bn",
-                4388,
-            ),
-        ],
-    },
-    "eye_v5-model_v13-rgb": {
-        "abbreviation": "s4",
-        "input_size": (256, 256, 5),
-        "color_model": "rgb",
-        "file": "model_v13_cv",
-        "dataset": "eye_v5",
-        "experiments": [
-            (
-                "eye_v5-model_v13_multiclass-softmax-cce-lw_1_0-rgb-fold_1-lr_1e_2-bn",
-                4909,
-            ),
-            (
-                "eye_v5-model_v13_multiclass-softmax-cce-lw_1_0-rgb-fold_2-lr_1e_2-bn",
-                4619,
-            ),
-            (
-                "eye_v5-model_v13_multiclass-softmax-cce-lw_1_0-rgb-fold_3-lr_1e_2-bn",
-                4692,
-            ),
-            (
-                "eye_v5-model_v13_multiclass-softmax-cce-lw_1_0-rgb-fold_4-lr_1e_2-bn",
-                4399,
-            ),
-        ],
-    },
-    "eye_v5-model_v13-hsv": {
-        "abbreviation": "s5",
-        "input_size": (256, 256, 5),
-        "color_model": "hsv",
-        "file": "model_v13_cv",
-        "dataset": "eye_v5",
-        "experiments": [
-            (
-                "eye_v5-model_v13_multiclass-softmax-cce-lw_1_0-hsv-fold_1-lr_1e_2-bn",
-                4684,
-            ),
-            (
-                "eye_v5-model_v13_multiclass-softmax-cce-lw_1_0-hsv-fold_2-lr_1e_2-bn",
-                4513,
-            ),
-            (
-                "eye_v5-model_v13_multiclass-softmax-cce-lw_1_0-hsv-fold_3-lr_1e_2-bn",
-                4111,
-            ),
-            (
-                "eye_v5-model_v13_multiclass-softmax-cce-lw_1_0-hsv-fold_4-lr_1e_2-bn",
-                4886,
-            ),
-        ],
-    },
-    "eye_v5-model_v28-hsv": {
-        "abbreviation": "s6",
-        "input_size": (256, 256, 8),
-        "color_model": None,
-        "file": "model_v28_cv",
-        "dataset": "eye_v5",
-        "experiments": [
-            ("eye_v5-model_v28_multiclass-softmax-cce-lw_1_0-fold_1-lr_1e_2-bn", 4186),
-            ("eye_v5-model_v28_multiclass-softmax-cce-lw_1_0-fold_2-lr_1e_2-bn", 4717),
-            ("eye_v5-model_v28_multiclass-softmax-cce-lw_1_0-fold_3-lr_1e_2-bn", 4737),
-            ("eye_v5-model_v28_multiclass-softmax-cce-lw_1_0-fold_4-lr_1e_2-bn", 4185),
-        ],
-    },
-}
 
 create_model = None
 get_test_data = None
@@ -201,8 +61,8 @@ def predict():
     BATCH_NORMALIZATION = True
     PREDICT_VERBOSE = 1  # 0 = silent, 1
 
-    experiment_names = ["s1", "s2", "s3", "s4", "s5", "s6"]
-    ENSEMBLE_MODE = EnsembleMode.product
+    experiment_names = ["s41", "s44", "s46"]
+    ENSEMBLE_MODE = EnsembleMode.summation
 
     data_path = "data"
     dataset_path = "datasets"
@@ -219,7 +79,8 @@ def predict():
             predicted_outputs = {}
             for NAME in experiment_pool:
                 experiment = experiment_pool[NAME]
-                if experiment["abbreviation"] not in experiment_names:
+                if experiment.get("abbreviation") not in experiment_names:
+                    print(NAME, "skipped")
                     continue
 
                 import_model_functions(experiment["file"])
@@ -240,7 +101,7 @@ def predict():
                 """
                 model_path = os.path.join(data_path, model_name)
                 weights_dir = os.path.join(model_path, "weights")
-                trained_weights_filename = f"{epoch:08d}.hdf5"
+                trained_weights_filename = get_weight_filename(experiment, NAME, epoch)
                 trained_weights_file = os.path.join(
                     weights_dir, trained_weights_filename
                 )
@@ -254,10 +115,10 @@ def predict():
                 )
 
                 test_data_dict = dict(test_path=set_path, target_size=TARGET_SIZE)
-                if "v28" not in NAME:
+                if not ("v28" in NAME or "v37" in NAME or "v41" in NAME):
                     test_data_dict["image_color"] = color_model
                 test_flow, test_files = get_test_data(**test_data_dict)
-                if "v28" not in NAME:
+                if not ("v28" in NAME or "v37" in NAME or "v41" in NAME):
                     test_gen = test_generator(test_flow, color_model)
                 else:
                     test_gen = test_generator(test_flow)
@@ -266,7 +127,10 @@ def predict():
                 results = model.predict_generator(
                     test_gen, steps=predict_steps, verbose=PREDICT_VERBOSE
                 )
-                segment_results = results[0]
+                if "unet" in NAME or "segnet" in NAME:
+                    segment_results = results
+                else:
+                    segment_results = results[0]
                 predicted_outputs[NAME] = segment_results
 
             """
@@ -395,4 +259,5 @@ def ensemble_combine(num_files, ensemble_mode, TARGET_SIZE, predicted_outputs):
 
 
 if __name__ == "__main__":
+    experiment_pool = get_experiment_pool()
     predict()
