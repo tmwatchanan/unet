@@ -582,7 +582,7 @@ def create_model(
     conv_15 = Conv2D(256, (kernel, kernel), padding="same")(conv_14)
     conv_15 = BatchNormalization()(conv_15)
     conv_15 = Activation("relu")(conv_15)
-    conv_16 = Conv2D(256, (kernel, kernel), padding="same")(conv_15)
+    conv_16 = Conv2D(128, (kernel, kernel), padding="same")(conv_15)
     conv_16 = BatchNormalization()(conv_16)
     conv_16 = Activation("relu")(conv_16)
 
