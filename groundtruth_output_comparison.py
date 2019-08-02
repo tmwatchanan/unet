@@ -18,313 +18,11 @@ from check_accuracy import (
     preprocess_image,
     read_groundtruth,
 )
-from utils import max_rgb_filter
-from ensemble_aggregation_predict import EnsembleMode, ensemble_combine
+from utils import max_rgb_filter, get_weight_filename
+from ensemble_aggregation_predict import ensemble_combine
+from experiment_data import get_experiment_pool
 
 matplotlib.use("TKAgg", warn=False, force=True)
-
-
-experiment_pool = {
-    # "eye_v4-model_v12-rgb": {
-    #     "input_size": (256, 256, 3),
-    #     "color_model": "rgb",
-    #     "file": "model_v12_cv",
-    #     "dataset": "eye_v4",
-    #     "experiments": [
-    #         (
-    #             "eye_v4-model_v12_multiclass-softmax-cce-lw_1_0-rgb-fold_1-lr_1e_2-bn",
-    #             4991,
-    #         ),
-    #         (
-    #             "eye_v4-model_v12_multiclass-softmax-cce-lw_1_0-rgb-fold_2-lr_1e_2-bn",
-    #             3974,
-    #         ),
-    #         (
-    #             "eye_v4-model_v12_multiclass-softmax-cce-lw_1_0-rgb-fold_3-lr_1e_2-bn",
-    #             4853,
-    #         ),
-    #         (
-    #             "eye_v4-model_v12_multiclass-softmax-cce-lw_1_0-rgb-fold_4-lr_1e_2-bn",
-    #             4345,
-    #         ),
-    #     ],
-    # },
-    # "eye_v4-model_v12-hsv": {
-    #     "input_size": (256, 256, 3),
-    #     "color_model": "hsv",
-    #     "file": "model_v12_cv",
-    #     "dataset": "eye_v4",
-    #     "experiments": [
-    #         (
-    #             "eye_v4-model_v12_multiclass-softmax-cce-lw_1_0-hsv-fold_1-lr_1e_2-bn",
-    #             2702,
-    #         ),
-    #         (
-    #             "eye_v4-model_v12_multiclass-softmax-cce-lw_1_0-hsv-fold_2-lr_1e_2-bn",
-    #             4385,
-    #         ),
-    #         (
-    #             "eye_v4-model_v12_multiclass-softmax-cce-lw_1_0-hsv-fold_3-lr_1e_2-bn",
-    #             3730,
-    #         ),
-    #         (
-    #             "eye_v4-model_v12_multiclass-softmax-cce-lw_1_0-hsv-fold_4-lr_1e_2-bn",
-    #             4865,
-    #         ),
-    #     ],
-    # },
-    # "eye_v4-model_v15-hsv": {
-    #     "input_size": (256, 256, 2),
-    #     "color_model": "hsv",
-    #     "file": "model_v15_cv",
-    #     "dataset": "eye_v4",
-    #     "experiments": [
-    #         (
-    #             "eye_v4-model_v15_multiclass-softmax-cce-lw_1_0-hsv-fold_1-lr_1e_2-bn",
-    #             3526,
-    #         ),
-    #         (
-    #             "eye_v4-model_v15_multiclass-softmax-cce-lw_1_0-hsv-fold_2-lr_1e_2-bn",
-    #             4984,
-    #         ),
-    #         (
-    #             "eye_v4-model_v15_multiclass-softmax-cce-lw_1_0-hsv-fold_3-lr_1e_2-bn",
-    #             4287,
-    #         ),
-    #         (
-    #             "eye_v4-model_v15_multiclass-softmax-cce-lw_1_0-hsv-fold_4-lr_1e_2-bn",
-    #             4873,
-    #         ),
-    #     ],
-    # },
-    # "eye_v4-model_v13-rgb": {
-    #     "input_size": (256, 256, 5),
-    #     "color_model": "rgb",
-    #     "file": "model_v13_cv",
-    #     "dataset": "eye_v4",
-    #     "experiments": [
-    #         (
-    #             "eye_v4-model_v13_multiclass-softmax-cce-lw_1_0-rgb-fold_1-lr_1e_2-bn",
-    #             4925,
-    #         ),
-    #         (
-    #             "eye_v4-model_v13_multiclass-softmax-cce-lw_1_0-rgb-fold_2-lr_1e_2-bn",
-    #             4829,
-    #         ),
-    #         (
-    #             "eye_v4-model_v13_multiclass-softmax-cce-lw_1_0-rgb-fold_3-lr_1e_2-bn",
-    #             3061,
-    #         ),
-    #         (
-    #             "eye_v4-model_v13_multiclass-softmax-cce-lw_1_0-rgb-fold_4-lr_1e_2-bn",
-    #             4808,
-    #         ),
-    #     ],
-    # },
-    # "eye_v4-model_v13-hsv": {
-    #     "input_size": (256, 256, 5),
-    #     "color_model": "hsv",
-    #     "file": "model_v13_cv",
-    #     "dataset": "eye_v4",
-    #     "experiments": [
-    #         (
-    #             "eye_v4-model_v13_multiclass-softmax-cce-lw_1_0-hsv-fold_1-lr_1e_2-bn",
-    #             2321,
-    #         ),
-    #         (
-    #             "eye_v4-model_v13_multiclass-softmax-cce-lw_1_0-hsv-fold_2-lr_1e_2-bn",
-    #             2076,
-    #         ),
-    #         (
-    #             "eye_v4-model_v13_multiclass-softmax-cce-lw_1_0-hsv-fold_3-lr_1e_2-bn",
-    #             4462,
-    #         ),
-    #         (
-    #             "eye_v4-model_v13_multiclass-softmax-cce-lw_1_0-hsv-fold_4-lr_1e_2-bn",
-    #             2940,
-    #         ),
-    #     ],
-    # },
-    "eye_v5-model_v12-rgb": {
-        "input_size": (256, 256, 3),
-        "color_model": "rgb",
-        "file": "model_v12_cv",
-        "dataset": "eye_v5",
-        "experiments": [
-            (
-                "eye_v5-model_v12_multiclass-softmax-cce-lw_1_0-rgb-fold_1-lr_1e_2-bn",
-                4138,
-            ),
-            (
-                "eye_v5-model_v12_multiclass-softmax-cce-lw_1_0-rgb-fold_2-lr_1e_2-bn",
-                4468,
-            ),
-            (
-                "eye_v5-model_v12_multiclass-softmax-cce-lw_1_0-rgb-fold_3-lr_1e_2-bn",
-                3396,
-            ),
-            (
-                "eye_v5-model_v12_multiclass-softmax-cce-lw_1_0-rgb-fold_4-lr_1e_2-bn",
-                3445,
-            ),
-        ],
-    },
-    "eye_v5-model_v12-hsv": {
-        "input_size": (256, 256, 3),
-        "color_model": "hsv",
-        "file": "model_v12_cv",
-        "dataset": "eye_v5",
-        "experiments": [
-            (
-                "eye_v5-model_v12_multiclass-softmax-cce-lw_1_0-hsv-fold_1-lr_1e_2-bn",
-                3722,
-            ),
-            (
-                "eye_v5-model_v12_multiclass-softmax-cce-lw_1_0-hsv-fold_2-lr_1e_2-bn",
-                4884,
-            ),
-            (
-                "eye_v5-model_v12_multiclass-softmax-cce-lw_1_0-hsv-fold_3-lr_1e_2-bn",
-                4971,
-            ),
-            (
-                "eye_v5-model_v12_multiclass-softmax-cce-lw_1_0-hsv-fold_4-lr_1e_2-bn",
-                4283,
-            ),
-        ],
-    },
-    "eye_v5-model_v15-hsv": {
-        "input_size": (256, 256, 2),
-        "color_model": "hsv",
-        "file": "model_v15_cv",
-        "dataset": "eye_v5",
-        "experiments": [
-            (
-                "eye_v5-model_v15_multiclass-softmax-cce-lw_1_0-hsv-fold_1-lr_1e_2-bn",
-                2637,
-            ),
-            (
-                "eye_v5-model_v15_multiclass-softmax-cce-lw_1_0-hsv-fold_2-lr_1e_2-bn",
-                4811,
-            ),
-            (
-                "eye_v5-model_v15_multiclass-softmax-cce-lw_1_0-hsv-fold_3-lr_1e_2-bn",
-                4122,
-            ),
-            (
-                "eye_v5-model_v15_multiclass-softmax-cce-lw_1_0-hsv-fold_4-lr_1e_2-bn",
-                4388,
-            ),
-        ],
-    },
-    "eye_v5-model_v13-rgb": {
-        "input_size": (256, 256, 5),
-        "color_model": "rgb",
-        "file": "model_v13_cv",
-        "dataset": "eye_v5",
-        "experiments": [
-            (
-                "eye_v5-model_v13_multiclass-softmax-cce-lw_1_0-rgb-fold_1-lr_1e_2-bn",
-                4909,
-            ),
-            (
-                "eye_v5-model_v13_multiclass-softmax-cce-lw_1_0-rgb-fold_2-lr_1e_2-bn",
-                4619,
-            ),
-            (
-                "eye_v5-model_v13_multiclass-softmax-cce-lw_1_0-rgb-fold_3-lr_1e_2-bn",
-                4692,
-            ),
-            (
-                "eye_v5-model_v13_multiclass-softmax-cce-lw_1_0-rgb-fold_4-lr_1e_2-bn",
-                4399,
-            ),
-        ],
-    },
-    "eye_v5-model_v13-hsv": {
-        "input_size": (256, 256, 5),
-        "color_model": "hsv",
-        "file": "model_v13_cv",
-        "dataset": "eye_v5",
-        "experiments": [
-            (
-                "eye_v5-model_v13_multiclass-softmax-cce-lw_1_0-hsv-fold_1-lr_1e_2-bn",
-                4684,
-            ),
-            (
-                "eye_v5-model_v13_multiclass-softmax-cce-lw_1_0-hsv-fold_2-lr_1e_2-bn",
-                4513,
-            ),
-            (
-                "eye_v5-model_v13_multiclass-softmax-cce-lw_1_0-hsv-fold_3-lr_1e_2-bn",
-                4111,
-            ),
-            (
-                "eye_v5-model_v13_multiclass-softmax-cce-lw_1_0-hsv-fold_4-lr_1e_2-bn",
-                4886,
-            ),
-        ],
-    },
-    # "eye_v5-model_v23-rgb": {
-    #     "input_size": (256, 256, 9),
-    #     "color_model": "rgb",
-    #     "file": "model_v23_cv",
-    #     "dataset": "eye_v5-s1",
-    #     "experiments": [
-    #         (
-    #             "eye_v5-model_v23_multiclass-softmax-cce-lw_1_0-rgb-fold_1-lr_1e_2-bn",
-    #             2456,
-    #         ),
-    #         (
-    #             "eye_v5-model_v23_multiclass-softmax-cce-lw_1_0-rgb-fold_2-lr_1e_2-bn",
-    #             4480,
-    #         ),
-    #         (
-    #             "eye_v5-model_v23_multiclass-softmax-cce-lw_1_0-rgb-fold_3-lr_1e_2-bn",
-    #             4012,
-    #         ),
-    #         (
-    #             "eye_v5-model_v23_multiclass-softmax-cce-lw_1_0-rgb-fold_4-lr_1e_2-bn",
-    #             3308,
-    #         ),
-    #     ],
-    # },
-    "sum_s1s2s3s4s5": {
-        "dataset": "eye_v5",
-        "ensemble_mode": EnsembleMode.summation,
-        "models": [
-            "eye_v5-model_v12-rgb",
-            "eye_v5-model_v12-hsv",
-            "eye_v5-model_v15-hsv",
-            "eye_v5-model_v13-rgb",
-            "eye_v5-model_v13-hsv",
-        ],
-    },
-    "eye_v5-model_v23-rgb": {
-        "input_size": (256, 256, 9),
-        "color_model": "rgb",
-        "file": "model_v23_cv",
-        "dataset": "eye_v5-s1",
-        "experiments": [
-            (
-                "eye_v5-model_v23_multiclass-softmax-cce-lw_1_0-rgb-fold_1-lr_1e_2-bn",
-                3742,
-            ),
-            (
-                "eye_v5-model_v23_multiclass-softmax-cce-lw_1_0-rgb-fold_2-lr_1e_2-bn",
-                4903,
-            ),
-            (
-                "eye_v5-model_v23_multiclass-softmax-cce-lw_1_0-rgb-fold_3-lr_1e_2-bn",
-                3637,
-            ),
-            (
-                "eye_v5-model_v23_multiclass-softmax-cce-lw_1_0-rgb-fold_4-lr_1e_2-bn",
-                4617,
-            ),
-        ],
-    },
-}
 
 create_model = None
 get_test_data = None
@@ -357,16 +55,28 @@ def predict():
     BATCH_NORMALIZATION = True
     PREDICT_VERBOSE = 1  # 0 = silent, 1
 
-    OUTPUT_DIRNAME = "G_S1_S2_S3_S4_S5"
-    # OUTPUT_DIRNAME = "G_S1_S2_S3_E5_P2"
+    OUTPUT_DIRNAME = "S31_S34_S36_S41_S44_S46"
     TARGET_EXPERIMENT_POOL = [
-        "eye_v5-model_v12-rgb",
-        "eye_v5-model_v12-hsv",
-        "eye_v5-model_v15-hsv",
-        "eye_v5-model_v13-rgb",
-        "eye_v5-model_v13-hsv",
-        # "sum_s1s2s3s4s5",
+        # "eye_v5-model_v12-rgb",
+        # "eye_v5-model_v12-hsv",
+        # "eye_v5-model_v15-hsv",
+        # "eye_v5-model_v13-rgb",
+        # "eye_v5-model_v13-hsv",
         # "eye_v5-model_v23-rgb",
+        "eye_v5-model_v35-rgb",
+        "eye_v5-model_v36-rgb",
+        "eye_v5-model_v37",
+        "eye_v5-model_v39-rgb",
+        "eye_v5-model_v40-rgb",
+        "eye_v5-model_v41",
+        # "eye_v5-unet_v2-rgb",
+        # "eye_v5-unet_v3-rgb",
+        # "eye_v5-unet_v4-rgb",
+        # "eye_v5-unet-rgb",
+        # "eye_v5-segnet-rgb",
+        # "sum_confidences_s1s2s3s4s5",
+        # "eye_v5-model_v38",
+        # "sum_confidences_s31u4sg1",
     ]
 
     data_path = "data"
@@ -382,6 +92,7 @@ def predict():
 
             predicted_outputs = {}
             for i, NAME in enumerate(TARGET_EXPERIMENT_POOL):
+                print(">", NAME)
                 experiment = experiment_pool[NAME]
 
                 if "models" not in experiment:
@@ -405,7 +116,9 @@ def predict():
                     """
                     model_path = os.path.join(data_path, model_name)
                     weights_dir = os.path.join(model_path, "weights")
-                    trained_weights_filename = f"{epoch:08d}.hdf5"
+                    trained_weights_filename = get_weight_filename(
+                        experiment, NAME, epoch
+                    )
                     trained_weights_file = os.path.join(
                         weights_dir, trained_weights_filename
                     )
@@ -419,8 +132,12 @@ def predict():
                         TARGET_SIZE,
                         color_model,
                         PREDICT_VERBOSE,
+                        NAME
                     )
-                    segment_results = results[0]
+                    if "model_v38" in NAME or "unet" in NAME or "segnet" in NAME:
+                        segment_results = results
+                    else:
+                        segment_results = results[0]
 
                     predicted_outputs[i] = segment_results
                 else:
@@ -453,7 +170,10 @@ def predict():
                         """
                         model_path = os.path.join(data_path, model_name)
                         weights_dir = os.path.join(model_path, "weights")
-                        trained_weights_filename = f"{epoch:08d}.hdf5"
+
+                        trained_weights_filename = get_weight_filename(
+                            each_experiment, model_name, epoch
+                        )
                         trained_weights_file = os.path.join(
                             weights_dir, trained_weights_filename
                         )
@@ -467,9 +187,17 @@ def predict():
                             TARGET_SIZE,
                             color_model,
                             PREDICT_VERBOSE,
+                            model_name
                         )
                         num_files = len(test_files)
-                        segment_results = results[0]
+                        if (
+                            "model_v38" in model_name
+                            or "unet" in model_name
+                            or "segnet" in model_name
+                        ):
+                            segment_results = results
+                        else:
+                            segment_results = results[0]
 
                         outputs_from_multiple_models[model_name] = segment_results
 
@@ -491,13 +219,18 @@ def predict():
                 groundtruths.append((file, groundtruth))
 
             for g_index, (filename, groundtruth) in enumerate(groundtruths):
-                concatenated_output = groundtruth
+                # concatenated_output = groundtruth
+                first_time = True
                 for model_output_name in predicted_outputs:
                     output_segment = predicted_outputs[model_output_name][g_index]
                     output_segment = convert_confidence_to_image(output_segment)
-                    concatenated_output = np.concatenate(
-                        (concatenated_output, output_segment), axis=1
-                    )
+                    if first_time:
+                        concatenated_output = output_segment
+                    else:
+                        concatenated_output = np.concatenate(
+                            (concatenated_output, output_segment), axis=1
+                        )
+                    first_time = False
 
                 concatenated_output = np.hsplit(concatenated_output, 2)
                 concatenated_output = np.concatenate(concatenated_output, axis=0)
@@ -521,6 +254,7 @@ def predict_images(
     TARGET_SIZE,
     color_model,
     PREDICT_VERBOSE,
+    model_name
 ):
     model = create_model(
         pretrained_weights=trained_weights_file,
@@ -531,10 +265,15 @@ def predict_images(
     )
 
     test_data_dict = dict(
-        test_path=set_path, target_size=TARGET_SIZE, image_color=color_model
+        test_path=set_path, target_size=TARGET_SIZE
     )
+    if not ("v28" in model_name or "v37" in model_name or "v41" in model_name):
+        test_data_dict["image_color"] = color_model
     test_flow, test_files = get_test_data(**test_data_dict)
-    test_gen = test_generator(test_flow, color_model)
+    if not ("v28" in model_name or "v37" in model_name or "v41" in model_name):
+        test_gen = test_generator(test_flow, color_model)
+    else:
+        test_gen = test_generator(test_flow)
 
     predict_steps = len(test_files)
     results = model.predict_generator(
@@ -550,4 +289,5 @@ def convert_confidence_to_image(array):
 
 
 if __name__ == "__main__":
+    experiment_pool = get_experiment_pool()
     predict()
