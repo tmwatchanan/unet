@@ -475,6 +475,32 @@ def get_experiment_pool():
             ],
             "weight_name": "segnet_best",
         },
+        "eye_v5-segnet_v3-rgb": {
+            "abbreviation": "sg1",
+            "input_size": (256, 256, 3),
+            "color_model": "rgb",
+            "file": "segnet_v3_cv",
+            "dataset": "eye_v5",
+            "experiments": [
+                (
+                    "eye_v5-segnet_v3_multiclass-softmax-cce-lw_1_0-rgb-fold_1-lr_1e_4-bn",
+                    4438,
+                ),
+                (
+                    "eye_v5-segnet_v3_multiclass-softmax-cce-lw_1_0-rgb-fold_2-lr_1e_4-bn",
+                    2949,
+                ),
+                (
+                    "eye_v5-segnet_v3_multiclass-softmax-cce-lw_1_0-rgb-fold_3-lr_1e_4-bn",
+                    748,
+                ),
+                (
+                    "eye_v5-segnet_v3_multiclass-softmax-cce-lw_1_0-rgb-fold_4-lr_1e_4-bn",
+                    2808,
+                ),
+            ],
+            "weight_name": "segnet_v3_best",
+        },
         "sum_confidences_s1s2s3s4s5": {
             "dataset": "eye_v5",
             "ensemble_mode": EnsembleMode.summation,
@@ -511,6 +537,31 @@ def get_experiment_pool():
                 ),
             ],
         },
+        "eye_v5-model_v35-hsv": {
+            "abbreviation": "s32",
+            "input_size": (256, 256, 3),
+            "color_model": "hsv",
+            "file": "model_v35_cv",
+            "dataset": "eye_v5",
+            "experiments": [
+                (
+                    "eye_v5-model_v35_multiclass-softmax-cce-lw_1_0-hsv-fold_1-lr_1e_2-bn",
+                    3826,
+                ),
+                (
+                    "eye_v5-model_v35_multiclass-softmax-cce-lw_1_0-hsv-fold_2-lr_1e_2-bn",
+                    4389,
+                ),
+                (
+                    "eye_v5-model_v35_multiclass-softmax-cce-lw_1_0-hsv-fold_3-lr_1e_2-bn",
+                    4984,
+                ),
+                (
+                    "eye_v5-model_v35_multiclass-softmax-cce-lw_1_0-hsv-fold_4-lr_1e_2-bn",
+                    4743,
+                ),
+            ],
+        },
         "eye_v5-model_v36-rgb": {
             "abbreviation": "s34",
             "input_size": (256, 256, 5),
@@ -533,6 +584,31 @@ def get_experiment_pool():
                 (
                     "eye_v5-model_v36_multiclass-softmax-cce-lw_1_0-rgb-fold_4-lr_1e_2-bn",
                     4814,
+                ),
+            ],
+        },
+        "eye_v5-model_v36-hsv": {
+            "abbreviation": "s35",
+            "input_size": (256, 256, 5),
+            "color_model": "hsv",
+            "file": "model_v36_cv",
+            "dataset": "eye_v5",
+            "experiments": [
+                (
+                    "eye_v5-model_v36_multiclass-softmax-cce-lw_1_0-hsv-fold_1-lr_1e_2-bn",
+                    3781,
+                ),
+                (
+                    "eye_v5-model_v36_multiclass-softmax-cce-lw_1_0-hsv-fold_2-lr_1e_2-bn",
+                    3947,
+                ),
+                (
+                    "eye_v5-model_v36_multiclass-softmax-cce-lw_1_0-hsv-fold_3-lr_1e_2-bn",
+                    3393,
+                ),
+                (
+                    "eye_v5-model_v36_multiclass-softmax-cce-lw_1_0-hsv-fold_4-lr_1e_2-bn",
+                    4932,
                 ),
             ],
         },
