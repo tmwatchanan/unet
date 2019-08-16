@@ -510,8 +510,6 @@ def create_model(pretrained_weights=None,
 
     return model
 
-    return model
-
 
 def preprocess_image_input(img1, img2):
     """preprocess input using image
