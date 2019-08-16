@@ -55,7 +55,7 @@ def predict():
     BATCH_NORMALIZATION = True
     PREDICT_VERBOSE = 1  # 0 = silent, 1
 
-    OUTPUT_DIRNAME = "S31_S34_S36_S41_S44_S46"
+    OUTPUT_DIRNAME = "S31_S32_S33_S34_S35_S36"
     TARGET_EXPERIMENT_POOL = [
         # "eye_v5-model_v12-rgb",
         # "eye_v5-model_v12-hsv",
@@ -64,16 +64,20 @@ def predict():
         # "eye_v5-model_v13-hsv",
         # "eye_v5-model_v23-rgb",
         "eye_v5-model_v35-rgb",
+        "eye_v5-model_v35-hsv",
+        "eye_v5-model_v42",
         "eye_v5-model_v36-rgb",
+        "eye_v5-model_v36-hsv",
         "eye_v5-model_v37",
-        "eye_v5-model_v39-rgb",
-        "eye_v5-model_v40-rgb",
-        "eye_v5-model_v41",
+        # "eye_v5-model_v39-rgb",
+        # "eye_v5-model_v40-rgb",
+        # "eye_v5-model_v41",
         # "eye_v5-unet_v2-rgb",
         # "eye_v5-unet_v3-rgb",
         # "eye_v5-unet_v4-rgb",
         # "eye_v5-unet-rgb",
         # "eye_v5-segnet-rgb",
+        # "eye_v5-segnet_v3-rgb",
         # "sum_confidences_s1s2s3s4s5",
         # "eye_v5-model_v38",
         # "sum_confidences_s31u4sg1",
@@ -132,7 +136,7 @@ def predict():
                         TARGET_SIZE,
                         color_model,
                         PREDICT_VERBOSE,
-                        NAME
+                        NAME,
                     )
                     if "model_v38" in NAME or "unet" in NAME or "segnet" in NAME:
                         segment_results = results
@@ -187,7 +191,7 @@ def predict():
                             TARGET_SIZE,
                             color_model,
                             PREDICT_VERBOSE,
-                            model_name
+                            model_name,
                         )
                         num_files = len(test_files)
                         if (
@@ -254,7 +258,7 @@ def predict_images(
     TARGET_SIZE,
     color_model,
     PREDICT_VERBOSE,
-    model_name
+    model_name,
 ):
     model = create_model(
         pretrained_weights=trained_weights_file,
@@ -264,9 +268,7 @@ def predict_images(
         is_summary=False,
     )
 
-    test_data_dict = dict(
-        test_path=set_path, target_size=TARGET_SIZE
-    )
+    test_data_dict = dict(test_path=set_path, target_size=TARGET_SIZE)
     if not ("v28" in model_name or "v37" in model_name or "v41" in model_name):
         test_data_dict["image_color"] = color_model
     test_flow, test_files = get_test_data(**test_data_dict)

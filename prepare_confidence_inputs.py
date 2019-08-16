@@ -57,12 +57,12 @@ def predict():
     PREDICT_VERBOSE = 1  # 0 = silent, 1
 
     # experiment_names = ["s1", "s2", "s3", "s4", "s5"]
-    experiment_names = ["s31", "u4", "sg1"]
+    experiment_names = ["sg3"]
 
     data_path = "data"
     dataset_path = os.path.join("datasets", "eye_v5-pass_1")
 
-    for fold in range(4, 4 + 1):
+    for fold in range(1, 4 + 1):
 
         test_dir_names = ["test", "train", "validation"]
         for test_dir_name in test_dir_names:
@@ -102,10 +102,10 @@ def predict():
                 )
 
                 test_data_dict = dict(test_path=set_path, target_size=TARGET_SIZE)
-                if "v28" not in NAME:
+                if not ("v28" in NAME or "v37" in NAME or "v41" in NAME):
                     test_data_dict["image_color"] = color_model
                 test_flow, test_files = get_test_data(**test_data_dict)
-                if "v28" not in NAME:
+                if not ("v28" in NAME or "v37" in NAME or "v41" in NAME):
                     test_gen = test_generator(test_flow, color_model)
                 else:
                     test_gen = test_generator(test_flow)

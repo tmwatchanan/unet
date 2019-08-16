@@ -81,3 +81,13 @@ def add_canny_filter(img, color_model, added_img, sigma):
     # (X, Y, l) then becomes (X, Y, l+1)
     added_img = np.concatenate((added_img, im_canny), axis=-1)
     return added_img
+
+
+def get_weight_filename(experiment, NAME, epoch):
+    print(NAME);
+    if "unet" in NAME or "segnet" in NAME or "model_v39" in NAME or "model_v40" in NAME or "model_v41" in NAME:
+        weight_name = experiment["weight_name"]
+        trained_weights_filename = f"{weight_name}.hdf5"
+    else:
+        trained_weights_filename = f"{epoch:08d}.hdf5"
+    return trained_weights_filename

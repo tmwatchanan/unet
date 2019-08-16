@@ -61,7 +61,7 @@ def predict():
     BATCH_NORMALIZATION = True
     PREDICT_VERBOSE = 1  # 0 = silent, 1
 
-    experiment_names = ["s41", "s44", "s46"]
+    experiment_names = ["s31", "s32", "s33", "s34", "s35", "s36", "u4", "sg3"]
     ENSEMBLE_MODE = EnsembleMode.summation
 
     data_path = "data"
