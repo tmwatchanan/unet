@@ -476,7 +476,7 @@ def get_experiment_pool():
             "weight_name": "segnet_best",
         },
         "eye_v5-segnet_v3-rgb": {
-            "abbreviation": "sg1",
+            "abbreviation": "sg3",
             "input_size": (256, 256, 3),
             "color_model": "rgb",
             "file": "segnet_v3_cv",
@@ -738,6 +738,31 @@ def get_experiment_pool():
                 ),
             ],
             "weight_name": "model_v41_best",
+        },
+        "eye_v5-model_v42": {
+            "abbreviation": "s33",
+            "input_size": (256, 256, 2),
+            "color_model": "hsv",
+            "file": "model_v42_cv",
+            "dataset": "eye_v5",
+            "experiments": [
+                (
+                    "eye_v5-model_v42_multiclass-softmax-cce-lw_1_0-hsv-fold_1-lr_1e_2-bn",
+                    4365,
+                ),
+                (
+                    "eye_v5-model_v42_multiclass-softmax-cce-lw_1_0-hsv-fold_2-lr_1e_2-bn",
+                    4935,
+                ),
+                (
+                    "eye_v5-model_v42_multiclass-softmax-cce-lw_1_0-hsv-fold_3-lr_1e_2-bn",
+                    4879,
+                ),
+                (
+                    "eye_v5-model_v42_multiclass-softmax-cce-lw_1_0-hsv-fold_4-lr_1e_2-bn",
+                    4859,
+                ),
+            ],
         },
         "sum_confidences_s31u4sg1": {
             "dataset": "eye_v5",
