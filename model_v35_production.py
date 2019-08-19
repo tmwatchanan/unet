@@ -388,13 +388,6 @@ def train(ctx):
     ctx.invoke(plot, experiment_name=EXPERIMENT_NAME)
 
 
-def diff_iris_area(y_true, y_pred):
-    area_true = K.cast(K.sum(y_true, axis=[1, 2]), "float32")
-    area_pred = K.sum(y_pred, axis=[1, 2])
-    normalized_diff = (area_true - area_pred) / area_true
-    return K.mean(K.square(normalized_diff), axis=0)
-
-
 def create_model(pretrained_weights=None,
                  input_size=(),
                  num_classes=2,
@@ -482,7 +475,7 @@ def create_model(pretrained_weights=None,
         kernel_initializer='he_normal',
         name='output1')(layer17)
 
-    model = Model(inputs=[input1], outputs=[output1, output_iris])
+    model = Model(inputs=[input1], outputs=[output1])
 
     model.compile(
         optimizer=Adam(lr=learning_rate),
@@ -619,8 +612,8 @@ def get_test_data(
 def train_generator(image_mask_pair_flow, image_color_model):
     for (img_batch, mask_batch) in image_mask_pair_flow:
         processed_img_array = preprocess_images_in_batch(img_batch, image_color_model)
-        mask, mask_iris = preprocess_mask_input(mask_batch)
-        yield ([processed_img_array], [mask, mask_iris])
+        mask, _ = preprocess_mask_input(mask_batch)
+        yield ([processed_img_array], [mask])
 
 
 def test_generator(test_flow, image_color_model):
@@ -700,9 +693,7 @@ def plot(experiment_name):
         os.makedirs(graphs_dir)
 
     output1_acc_file = os.path.join(graphs_dir, "output1_acc.png")
-    # output_iris_acc_file = os.path.join(graphs_dir, "output_iris_acc.png")
     output1_loss_file = os.path.join(graphs_dir, "output1_loss.png")
-    # output_iris_loss_file = os.path.join(graphs_dir, "output_iris_loss.png")
 
     history_data = pd.read_csv(training_log_file)
     print(history_data.columns)
@@ -730,29 +721,6 @@ def plot(experiment_name):
         ["Train Loss", "Validation Loss"],
         output1_loss_file,
     )
-    # plot_graph(
-    #     3,
-    #     history_data["epoch"],
-    #     history_data["output_iris_acc"],
-    #     history_data["val_output_iris_acc"],
-    #     "Accuracy",
-    #     "Epoch",
-    #     f"{experiment_name} - Output Iris Model Accuracy",
-    #     ["Train Accuracy", "Validation Accuracy"],
-    #     output_iris_acc_file,
-    # )
-    # plot_graph(
-    #     4,
-    #     history_data["epoch"],
-    #     history_data["output_iris_loss"],
-    #     history_data["val_output_iris_loss"],
-    #     "Loss",
-    #     "Epoch",
-    #     f"{experiment_name} - Output Iris Model Loss (diff_iris_area)",
-    #     ["Train Loss", "Validation Loss"],
-    #     output_iris_loss_file,
-    # )
-
     # immediately show plotted graphs
     #  plt.show()
     return
