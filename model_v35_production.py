@@ -25,7 +25,7 @@ from keras import backend as K
 from keras.callbacks import (Callback, CSVLogger, LambdaCallback,
                              ModelCheckpoint)
 from keras.layers import (Activation, BatchNormalization, Concatenate, Conv2D,
-                          Dense, Flatten, Input, Lambda, MaxPooling2D, Permute,
+                          Dense, Flatten, Input, MaxPooling2D, Permute,
                           Reshape, ThresholdedReLU, UpSampling2D)
 from keras.models import Model
 from keras.optimizers import Adam
@@ -692,8 +692,8 @@ def plot(experiment_name):
     if not os.path.exists(graphs_dir):
         os.makedirs(graphs_dir)
 
-    output1_acc_file = os.path.join(graphs_dir, "output1_acc.png")
-    output1_loss_file = os.path.join(graphs_dir, "output1_loss.png")
+    output1_acc_file = os.path.join(graphs_dir, "acc.png")
+    output1_loss_file = os.path.join(graphs_dir, "loss.png")
 
     history_data = pd.read_csv(training_log_file)
     print(history_data.columns)
@@ -702,8 +702,8 @@ def plot(experiment_name):
     plot_graph(
         1,
         history_data["epoch"],
-        history_data["output1_acc"],
-        history_data["val_output1_acc"],
+        history_data["acc"],
+        history_data["val_acc"],
         "Accuracy",
         "Epoch",
         f"{experiment_name} - Output 1 Model Accuracy",
@@ -713,8 +713,8 @@ def plot(experiment_name):
     plot_graph(
         2,
         history_data["epoch"],
-        history_data["output1_loss"],
-        history_data["val_output1_loss"],
+        history_data["loss"],
+        history_data["val_loss"],
         "Loss",
         "Epoch",
         f"{experiment_name} - Output 1 Model Loss (cce)",
@@ -902,7 +902,7 @@ def evaluate(ctx):
     test_gen = train_generator(test_flow, COLOR_MODEL)
     groundtruths = []
     step = 0
-    for (_,), (mask_batch, _) in test_gen:
+    for (_,), (mask_batch,) in test_gen:
         for mask in mask_batch:
             groundtruths.append(mask)
         step += 1
@@ -913,7 +913,7 @@ def evaluate(ctx):
     )
 
     label_image_pairs = evaluate_classes(
-        predicted_results[0], groundtruths
+        predicted_results, groundtruths
     )  # [0] images, [1] masks
     for p_class in classes:
         folds_label_image_pairs[p_class]["label"] = np.concatenate(
@@ -936,9 +936,9 @@ def evaluate(ctx):
     evaluation = model.evaluate_generator(
         generator=test_gen, steps=evaluate_steps, verbose=1
     )
-    # print(model.metrics_names) # [3] output1_acc
+    print(model.metrics_names) # [3] output1_acc
     print(evaluation)
-    training_validation_evaluation["test"] = evaluation[3]
+    training_validation_evaluation["test"] = evaluation[1]
 
     for p_class in classes:
         precision = metrics.precision_score(
@@ -980,8 +980,8 @@ def evaluate_training_and_validation(experiment_name):
     training_log_file = os.path.join(experiment_name_dir, "training.csv")
 
     training_log = pd.read_csv(training_log_file)
-    output1_acc = training_log["output1_acc"]
-    val_output1_acc = training_log["val_output1_acc"]
+    output1_acc = training_log["acc"]
+    val_output1_acc = training_log["val_acc"]
 
     def find_best_accuracy(accuracy_values):
         arg_max_output1_acc = np.argmax(np.array(accuracy_values))
