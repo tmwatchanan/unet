@@ -544,8 +544,7 @@ def preprocess_image_input(img1, img2):
 def preprocess_mask_input(mask):
     # mask shape = (BATCH_SIZE, x, y, channels)
     mask = mask / 255
-    mask_iris = mask[:, :, :, 0]
-    return mask, mask_iris
+    return mask
 
 
 def preprocess_images_in_batch(img1_batch, img2_batch):
@@ -654,8 +653,8 @@ def get_test_data(
 def train_generator(image_mask_pair_flow):
     for (img1_batch, img2_batch, mask_batch) in image_mask_pair_flow:
         processed_img_array = preprocess_images_in_batch(img1_batch, img2_batch)
-        mask, mask_iris = preprocess_mask_input(mask_batch)
-        yield ([processed_img_array], [mask, mask_iris])
+        mask = preprocess_mask_input(mask_batch)
+        yield ([processed_img_array], [mask])
 
 
 def test_generator(test_flow):
