@@ -207,7 +207,7 @@ def train(ctx):
         MODEL_NAME = "unet_v5_multiclass"
         MODEL_INFO = f"softmax-cce-lw_1_0-{COLOR_MODEL}-fold_{fold}"
         BATCH_NORMALIZATION = True
-        LEARNING_RATE = "1e_2"
+        LEARNING_RATE = "1e_4"
         EXPERIMENT_NAME = (
             f"{DATASET_NAME}-{MODEL_NAME}-{MODEL_INFO}-lr_{LEARNING_RATE}"
             + ("-bn" if BATCH_NORMALIZATION else "")
@@ -346,7 +346,7 @@ def train(ctx):
             monitor="val_acc",
             mode="auto",
             verbose=1,
-            save_best_only=False,
+            save_best_only=True,
             save_weights_only=False,
             period=MODEL_PERIOD,
         )
@@ -398,12 +398,6 @@ def train(ctx):
         # plot([EXPERIMENT_NAME])
         ctx.invoke(plot, experiment_name=EXPERIMENT_NAME)
 
-
-def diff_iris_area(y_true, y_pred):
-    area_true = K.cast(K.sum(y_true, axis=[1, 2]), "float32")
-    area_pred = K.sum(y_pred, axis=[1, 2])
-    normalized_diff = (area_true - area_pred) / area_true
-    return K.mean(K.square(normalized_diff), axis=0)
 
 
 def create_model(
@@ -760,29 +754,6 @@ def plot(experiment_name):
         ["Train Loss", "Validation Loss"],
         output1_loss_file,
     )
-    # plot_graph(
-    #     3,
-    #     history_data["epoch"],
-    #     history_data["output_iris_acc"],
-    #     history_data["val_output_iris_acc"],
-    #     "Accuracy",
-    #     "Epoch",
-    #     f"{experiment_name} - Output Iris Model Accuracy",
-    #     ["Train Accuracy", "Validation Accuracy"],
-    #     output_iris_acc_file,
-    # )
-    # plot_graph(
-    #     4,
-    #     history_data["epoch"],
-    #     history_data["output_iris_loss"],
-    #     history_data["val_output_iris_loss"],
-    #     "Loss",
-    #     "Epoch",
-    #     f"{experiment_name} - Output Iris Model Loss (diff_iris_area)",
-    #     ["Train Loss", "Validation Loss"],
-    #     output_iris_loss_file,
-    # )
-
     # immediately show plotted graphs
     #  plt.show()
     return
