@@ -757,8 +757,8 @@ def plot(experiment_name):
     plot_graph(
         2,
         history_data["epoch"],
-        history_data["output1_loss"],
-        history_data["val_output1_loss"],
+        history_data["loss"],
+        history_data["val_loss"],
         "Loss",
         "Epoch",
         f"{experiment_name} - Output 1 Model Loss (cce)",
