@@ -671,55 +671,41 @@ def save_result(
     target_size=(256, 256),
     num_class=3,
     save_each_layer=False,
-    save_iris=False,
 ):
-    for ol in range(len(npyfile)):
-        layer_output = npyfile[ol]
-        for i, item in enumerate(layer_output):
-            file_name = os.path.split(file_names[i])[1]
-            #  file_name=file_names[i]
-            if ol == 0:
-                output_shape = (target_size[0], target_size[1], num_class)
-                item = np.reshape(item, output_shape)
-                visualized_img = max_rgb_filter(item)
-                visualized_img[visualized_img > 0] = 1
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    skimage.io.imsave(
-                        os.path.join(
-                            save_path, f"{file_name}-{weights_name}-{ol+1}-merged.png"
-                        ),
-                        visualized_img,
-                    )
-                    if save_each_layer:
-                        skimage.io.imsave(
-                            os.path.join(
-                                save_path, f"{file_name}-{weights_name}-{ol+1}-0.png"
-                            ),
-                            item[:, :, 0],
-                        )
-                        skimage.io.imsave(
-                            os.path.join(
-                                save_path, f"{file_name}-{weights_name}-{ol+1}-1.png"
-                            ),
-                            item[:, :, 1],
-                        )
-                        skimage.io.imsave(
-                            os.path.join(
-                                save_path, f"{file_name}-{weights_name}-{ol+1}-2.png"
-                            ),
-                            item[:, :, 2],
-                        )
-            elif ol == 1 and save_iris:
-                item = np.reshape(item, target_size)
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    skimage.io.imsave(
-                        os.path.join(
-                            save_path, f"{file_name}-{weights_name}-{ol+1}-iris.png"
-                        ),
-                        item[:, :],
-                    )
+    for i, item in enumerate(npyfile):
+        file_name = os.path.split(file_names[i])[1]
+        #  file_name=file_names[i]
+        output_shape = (target_size[0], target_size[1], num_class)
+        item = np.reshape(item, output_shape)
+        visualized_img = max_rgb_filter(item)
+        visualized_img[visualized_img > 0] = 1
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            skimage.io.imsave(
+                os.path.join(
+                    save_path, f"{file_name}-{weights_name}-merged.png"
+                ),
+                visualized_img,
+            )
+            if save_each_layer:
+                skimage.io.imsave(
+                    os.path.join(
+                        save_path, f"{file_name}-{weights_name}-0.png"
+                    ),
+                    item[:, :, 0],
+                )
+                skimage.io.imsave(
+                    os.path.join(
+                        save_path, f"{file_name}-{weights_name}-1.png"
+                    ),
+                    item[:, :, 1],
+                )
+                skimage.io.imsave(
+                    os.path.join(
+                        save_path, f"{file_name}-{weights_name}-2.png"
+                    ),
+                    item[:, :, 2],
+                )
 
 
 def plot_graph(
@@ -760,8 +746,8 @@ def plot(experiment_name):
     plot_graph(
         1,
         history_data["epoch"],
-        history_data["output1_acc"],
-        history_data["val_output1_acc"],
+        history_data["acc"],
+        history_data["val_acc"],
         "Accuracy",
         "Epoch",
         f"{experiment_name} - Output 1 Model Accuracy",
@@ -779,29 +765,6 @@ def plot(experiment_name):
         ["Train Loss", "Validation Loss"],
         output1_loss_file,
     )
-    # plot_graph(
-    #     3,
-    #     history_data["epoch"],
-    #     history_data["output_iris_acc"],
-    #     history_data["val_output_iris_acc"],
-    #     "Accuracy",
-    #     "Epoch",
-    #     f"{experiment_name} - Output Iris Model Accuracy",
-    #     ["Train Accuracy", "Validation Accuracy"],
-    #     output_iris_acc_file,
-    # )
-    # plot_graph(
-    #     4,
-    #     history_data["epoch"],
-    #     history_data["output_iris_loss"],
-    #     history_data["val_output_iris_loss"],
-    #     "Loss",
-    #     "Epoch",
-    #     f"{experiment_name} - Output Iris Model Loss (diff_iris_area)",
-    #     ["Train Loss", "Validation Loss"],
-    #     output_iris_loss_file,
-    # )
-
     # immediately show plotted graphs
     #  plt.show()
     return
@@ -989,7 +952,7 @@ def evaluate(ctx):
         )
 
         label_image_pairs = evaluate_classes(
-            predicted_results[0], groundtruths
+            predicted_results, groundtruths
         )  # [0] images, [1] masks
         for p_class in classes:
             folds_label_image_pairs[p_class]["label"] = np.concatenate(
@@ -1060,8 +1023,8 @@ def evaluate_training_and_validation(experiment_name_template, fold_list):
         training_log_file = os.path.join(experiment_name_dir, "training.csv")
 
         training_log = pd.read_csv(training_log_file)
-        output1_acc = training_log["output1_acc"]
-        val_output1_acc = training_log["val_output1_acc"]
+        output1_acc = training_log["acc"]
+        val_output1_acc = training_log["val_acc"]
 
         def find_best_accuracy(accuracy_values):
             arg_max_output1_acc = np.argmax(np.array(accuracy_values))

@@ -857,7 +857,7 @@ def evaluate(ctx):
     dataset = Dataset(DATASET_NAME)
     MODEL_NAME = "unet_v4_multiclass"
     MODEL_INFO = "softmax-cce-lw_1_0"
-    COLOR_MODEL = "rgb"  # rgb, hsv, ycbcr, gray
+    COLOR_MODEL = "hsv"  # rgb, hsv, ycbcr, gray
     BATCH_NORMALIZATION = True
     LEARNING_RATE = "1e_4"
     batch_size = dataset.validation_batch_size
