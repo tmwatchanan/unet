@@ -203,7 +203,7 @@ def train(ctx):
         MODEL_NAME = "unet_v6_multiclass"
         MODEL_INFO = f"softmax-cce-lw_1_0-fold_{fold}"
         BATCH_NORMALIZATION = True
-        LEARNING_RATE = "1e_2"
+        LEARNING_RATE = "1e_4"
         EXPERIMENT_NAME = (
             f"{DATASET_NAME}-{MODEL_NAME}-{MODEL_INFO}-lr_{LEARNING_RATE}"
             + ("-bn" if BATCH_NORMALIZATION else "")
@@ -866,7 +866,7 @@ def evaluate(ctx):
     MODEL_NAME = "unet_v6_multiclass"
     MODEL_INFO = "softmax-cce-lw_1_0"
     BATCH_NORMALIZATION = True
-    LEARNING_RATE = "1e_2"
+    LEARNING_RATE = "1e_4"
     batch_size = dataset.validation_batch_size
     evaluate_steps = dataset.validation_steps_per_epoch
     INPUT_SIZE = (256, 256, 8)
