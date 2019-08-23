@@ -846,7 +846,7 @@ def evaluate(ctx):
     MODEL_INFO = "softmax-cce-lw_1_0"
     COLOR_MODEL = "hsv"  # rgb, hsv, ycbcr, gray
     BATCH_NORMALIZATION = True
-    LEARNING_RATE = "1e_2"
+    LEARNING_RATE = "1e_4"
     batch_size = dataset.validation_batch_size
     evaluate_steps = dataset.validation_steps_per_epoch
     INPUT_SIZE = (256, 256, 2)
@@ -925,7 +925,7 @@ def evaluate(ctx):
         test_gen = train_generator(test_flow, COLOR_MODEL)
         groundtruths = []
         step = 0
-        for (_,), (mask_batch, _) in test_gen:
+        for (_,), (mask_batch,) in test_gen:
             for mask in mask_batch:
                 groundtruths.append(mask)
             step += 1
