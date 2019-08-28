@@ -767,7 +767,7 @@ def get_test_data(
 def train_generator(image_mask_pair_flow, image_color_model):
     for (img_batch, mask_batch) in image_mask_pair_flow:
         processed_img_array = preprocess_images_in_batch(img_batch, image_color_model)
-        mask, mask_iris = preprocess_mask_input(mask_batch)
+        mask = preprocess_mask_input(mask_batch)
         yield ([processed_img_array], [mask])
 
 
