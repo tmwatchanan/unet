@@ -1087,7 +1087,7 @@ def evaluate(ctx):
         test_gen = train_generator(test_flow, COLOR_MODEL)
         groundtruths = []
         step = 0
-        for (_,), (mask_batch, _) in test_gen:
+        for (_,), (mask_batch,) in test_gen:
             for mask in mask_batch:
                 groundtruths.append(mask)
             step += 1
@@ -1098,7 +1098,7 @@ def evaluate(ctx):
         )
 
         label_image_pairs = evaluate_classes(
-            predicted_results[0], groundtruths
+            predicted_results, groundtruths
         )  # [0] images, [1] masks
         for p_class in classes:
             folds_label_image_pairs[p_class]["label"] = np.concatenate(
