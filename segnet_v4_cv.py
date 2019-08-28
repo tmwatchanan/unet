@@ -683,8 +683,7 @@ def preprocess_image_input(img, color_model):
 def preprocess_mask_input(mask):
     # mask shape = (BATCH_SIZE, x, y, channels)
     mask = mask / 255
-    mask_iris = mask[:, :, :, 0]
-    return mask, mask_iris
+    return mask
 
 
 def preprocess_images_in_batch(img_batch, img_color_model):
@@ -769,7 +768,7 @@ def train_generator(image_mask_pair_flow, image_color_model):
     for (img_batch, mask_batch) in image_mask_pair_flow:
         processed_img_array = preprocess_images_in_batch(img_batch, image_color_model)
         mask, mask_iris = preprocess_mask_input(mask_batch)
-        yield ([processed_img_array], [mask, mask_iris])
+        yield ([processed_img_array], [mask])
 
 
 def test_generator(test_flow, image_color_model):
@@ -786,55 +785,41 @@ def save_result(
     target_size=(256, 256),
     num_class=3,
     save_each_layer=False,
-    save_iris=False,
 ):
-    for ol in range(len(npyfile)):
-        layer_output = npyfile[ol]
-        for i, item in enumerate(layer_output):
-            file_name = os.path.split(file_names[i])[1]
-            #  file_name=file_names[i]
-            if ol == 0:
-                output_shape = (target_size[0], target_size[1], num_class)
-                item = np.reshape(item, output_shape)
-                visualized_img = max_rgb_filter(item)
-                visualized_img[visualized_img > 0] = 1
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    skimage.io.imsave(
-                        os.path.join(
-                            save_path, f"{file_name}-{weights_name}-{ol+1}-merged.png"
-                        ),
-                        visualized_img,
-                    )
-                    if save_each_layer:
-                        skimage.io.imsave(
-                            os.path.join(
-                                save_path, f"{file_name}-{weights_name}-{ol+1}-0.png"
-                            ),
-                            item[:, :, 0],
-                        )
-                        skimage.io.imsave(
-                            os.path.join(
-                                save_path, f"{file_name}-{weights_name}-{ol+1}-1.png"
-                            ),
-                            item[:, :, 1],
-                        )
-                        skimage.io.imsave(
-                            os.path.join(
-                                save_path, f"{file_name}-{weights_name}-{ol+1}-2.png"
-                            ),
-                            item[:, :, 2],
-                        )
-            elif ol == 1 and save_iris:
-                item = np.reshape(item, target_size)
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    skimage.io.imsave(
-                        os.path.join(
-                            save_path, f"{file_name}-{weights_name}-{ol+1}-iris.png"
-                        ),
-                        item[:, :],
-                    )
+    for i, item in enumerate(npyfile):
+        file_name = os.path.split(file_names[i])[1]
+        #  file_name=file_names[i]
+        output_shape = (target_size[0], target_size[1], num_class)
+        item = np.reshape(item, output_shape)
+        visualized_img = max_rgb_filter(item)
+        visualized_img[visualized_img > 0] = 1
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            skimage.io.imsave(
+                os.path.join(
+                    save_path, f"{file_name}-{weights_name}-merged.png"
+                ),
+                visualized_img,
+            )
+            if save_each_layer:
+                skimage.io.imsave(
+                    os.path.join(
+                        save_path, f"{file_name}-{weights_name}-0.png"
+                    ),
+                    item[:, :, 0],
+                )
+                skimage.io.imsave(
+                    os.path.join(
+                        save_path, f"{file_name}-{weights_name}-1.png"
+                    ),
+                    item[:, :, 1],
+                )
+                skimage.io.imsave(
+                    os.path.join(
+                        save_path, f"{file_name}-{weights_name}-2.png"
+                    ),
+                    item[:, :, 2],
+                )
 
 
 def plot_graph(
