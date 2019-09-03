@@ -203,7 +203,7 @@ def train(ctx):
         MODEL_NAME = "segnet_v5_multiclass"
         MODEL_INFO = f"softmax-cce-lw_1_0-fold_{fold}"
         BATCH_NORMALIZATION = True
-        LEARNING_RATE = "1e_2"
+        LEARNING_RATE = "1e_4"
         EXPERIMENT_NAME = (
             f"{DATASET_NAME}-{MODEL_NAME}-{MODEL_INFO}-lr_{LEARNING_RATE}"
             + ("-bn" if BATCH_NORMALIZATION else "")
@@ -334,7 +334,7 @@ def train(ctx):
         new_weights_file = os.path.join(weights_dir, new_weights_file)
         model_checkpoint = ModelCheckpoint(
             filepath=new_weights_file,
-            monitor="val_output1_acc",
+            monitor="val_acc",
             mode="auto",
             verbose=1,
             save_best_only=True,
@@ -677,8 +677,7 @@ def preprocess_image_input(img1, img2):
 def preprocess_mask_input(mask):
     # mask shape = (BATCH_SIZE, x, y, channels)
     mask = mask / 255
-    mask_iris = mask[:, :, :, 0]
-    return mask, mask_iris
+    return mask
 
 
 def preprocess_images_in_batch(img1_batch, img2_batch):
@@ -787,8 +786,8 @@ def get_test_data(
 def train_generator(image_mask_pair_flow):
     for (img1_batch, img2_batch, mask_batch) in image_mask_pair_flow:
         processed_img_array = preprocess_images_in_batch(img1_batch, img2_batch)
-        mask, mask_iris = preprocess_mask_input(mask_batch)
-        yield ([processed_img_array], [mask, mask_iris])
+        mask = preprocess_mask_input(mask_batch)
+        yield ([processed_img_array], [mask])
 
 
 def test_generator(test_flow):
