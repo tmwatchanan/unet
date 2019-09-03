@@ -334,7 +334,7 @@ def train(ctx):
         new_weights_file = os.path.join(weights_dir, new_weights_file)
         model_checkpoint = ModelCheckpoint(
             filepath=new_weights_file,
-            monitor="val_output1_acc",
+            monitor="val_acc",
             mode="auto",
             verbose=1,
             save_best_only=True,
