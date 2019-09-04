@@ -881,9 +881,9 @@ def plot(experiment_name):
     if not os.path.exists(graphs_dir):
         os.makedirs(graphs_dir)
 
-    output1_acc_file = os.path.join(graphs_dir, "output1_acc.png")
+    acc_file = os.path.join(graphs_dir, "acc.png")
     # output_iris_acc_file = os.path.join(graphs_dir, "output_iris_acc.png")
-    output1_loss_file = os.path.join(graphs_dir, "output1_loss.png")
+    loss_file = os.path.join(graphs_dir, "loss.png")
     # output_iris_loss_file = os.path.join(graphs_dir, "output_iris_loss.png")
 
     history_data = pd.read_csv(training_log_file)
@@ -893,24 +893,24 @@ def plot(experiment_name):
     plot_graph(
         1,
         history_data["epoch"],
-        history_data["output1_acc"],
-        history_data["val_output1_acc"],
+        history_data["acc"],
+        history_data["val_acc"],
         "Accuracy",
         "Epoch",
         f"{experiment_name} - Output 1 Model Accuracy",
         ["Train Accuracy", "Validation Accuracy"],
-        output1_acc_file,
+        acc_file,
     )
     plot_graph(
         2,
         history_data["epoch"],
-        history_data["output1_loss"],
-        history_data["val_output1_loss"],
+        history_data["loss"],
+        history_data["val_loss"],
         "Loss",
         "Epoch",
         f"{experiment_name} - Output 1 Model Loss (cce)",
         ["Train Loss", "Validation Loss"],
-        output1_loss_file,
+        loss_file,
     )
     # plot_graph(
     #     3,
@@ -1145,7 +1145,7 @@ def evaluate(ctx):
         evaluation = model.evaluate_generator(
             generator=test_gen, steps=evaluate_steps, verbose=1
         )
-        # print(model.metrics_names) # [3] output1_acc
+        # print(model.metrics_names) # [3] acc
         print(evaluation)
         training_validation_evaluation[fold - 1]["test"] = evaluation[3]
 
@@ -1193,30 +1193,30 @@ def evaluate_training_and_validation(experiment_name_template, fold_list):
         training_log_file = os.path.join(experiment_name_dir, "training.csv")
 
         training_log = pd.read_csv(training_log_file)
-        output1_acc = training_log["output1_acc"]
-        val_output1_acc = training_log["val_output1_acc"]
+        acc = training_log["acc"]
+        val_acc = training_log["val_acc"]
 
         def find_best_accuracy(accuracy_values):
-            arg_max_output1_acc = np.argmax(np.array(accuracy_values))
-            max_output1_acc = accuracy_values[arg_max_output1_acc]
-            return max_output1_acc, arg_max_output1_acc
+            arg_max_acc = np.argmax(np.array(accuracy_values))
+            max_acc = accuracy_values[arg_max_acc]
+            return max_acc, arg_max_acc
 
-        max_val_output1_acc, arg_max_val_output1_acc = find_best_accuracy(
-            val_output1_acc
+        max_val_acc, arg_max_val_acc = find_best_accuracy(
+            val_acc
         )
-        max_val_output1_acc_epoch = arg_max_val_output1_acc + 1
-        max_output1_acc = output1_acc[arg_max_val_output1_acc]
+        max_val_acc_epoch = arg_max_val_acc + 1
+        max_acc = acc[arg_max_val_acc]
         output_values.append(
             {
-                "training": max_output1_acc,
-                "validation": max_val_output1_acc,
-                "epoch": max_val_output1_acc_epoch,
+                "training": max_acc,
+                "validation": max_val_acc,
+                "epoch": max_val_acc_epoch,
             }
         )
 
-        print(f"fold {fold}, max accuracy @ epoch # {max_val_output1_acc_epoch}")
-        print(f"max training accuracy = {format_accuracy(max_output1_acc)}")
-        print(f"max validation accuracy = {format_accuracy(max_val_output1_acc)}")
+        print(f"fold {fold}, max accuracy @ epoch # {max_val_acc_epoch}")
+        print(f"max training accuracy = {format_accuracy(max_acc)}")
+        print(f"max validation accuracy = {format_accuracy(max_val_acc)}")
 
     return output_values
 
