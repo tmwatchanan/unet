@@ -1036,7 +1036,7 @@ def evaluate(ctx):
     MODEL_NAME = "segnet_v5_multiclass"
     MODEL_INFO = "softmax-cce-lw_1_0"
     BATCH_NORMALIZATION = True
-    LEARNING_RATE = "1e_2"
+    LEARNING_RATE = "1e_4"
     batch_size = dataset.validation_batch_size
     evaluate_steps = dataset.validation_steps_per_epoch
     INPUT_SIZE = (256, 256, 8)
@@ -1111,7 +1111,7 @@ def evaluate(ctx):
         test_gen = train_generator(test_flow)
         groundtruths = []
         step = 0
-        for (_,), (mask_batch, _) in test_gen:
+        for (_,), (mask_batch,) in test_gen:
             for mask in mask_batch:
                 groundtruths.append(mask)
             step += 1
@@ -1122,8 +1122,8 @@ def evaluate(ctx):
         )
 
         label_image_pairs = evaluate_classes(
-            predicted_results[0], groundtruths
-        )  # [0] images, [1] masks
+            predicted_results, groundtruths
+        )
         for p_class in classes:
             folds_label_image_pairs[p_class]["label"] = np.concatenate(
                 (
@@ -1147,7 +1147,7 @@ def evaluate(ctx):
         )
         # print(model.metrics_names) # [3] acc
         print(evaluation)
-        training_validation_evaluation[fold - 1]["test"] = evaluation[3]
+        training_validation_evaluation[fold - 1]["test"] = evaluation[1]
 
     for p_class in classes:
         precision = metrics.precision_score(
