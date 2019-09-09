@@ -4,11 +4,11 @@ import datetime
 import io
 import os
 import shutil
+import sys
 import time
 import warnings
 from collections import Iterable, OrderedDict
 from itertools import tee
-import sys
 
 import click
 import cv2
@@ -19,7 +19,6 @@ import numpy as np
 import pandas as pd
 import six
 import skimage
-from sklearn import metrics
 from scipy import ndimage
 import tensorflow as tf
 from keras import backend as K
@@ -44,10 +43,12 @@ from keras.models import Model
 from keras.optimizers import Adam
 from keras.preprocessing.image import ImageDataGenerator
 from keras.utils import plot_model
+from scipy import ndimage
+from sklearn import metrics
 from tensorflow.python.keras.callbacks import TensorBoard
 from termcolor import colored, cprint
 
-from utils import add_sobel_filters, max_rgb_filter
+from utils import max_rgb_filter
 from datasets import Dataset
 
 matplotlib.use("Agg")
@@ -73,6 +74,7 @@ class PredictOutput(Callback):
     def __init__(
         self,
         test_set_dir,
+        color_model,
         weights_dir,
         target_size,
         num_classes,
@@ -83,6 +85,7 @@ class PredictOutput(Callback):
     ):
         #  self.out_log = []
         self.test_set_dir = test_set_dir
+        self.color_model = color_model
         self.weights_dir = weights_dir
         self.target_size = target_size
         self.num_classes = num_classes
@@ -97,9 +100,10 @@ class PredictOutput(Callback):
             test_data_dict = dict(
                 test_path=self.test_set_dir,
                 target_size=self.target_size,
+                image_color=self.color_model,
             )
             test_flow, test_files = get_test_data(**test_data_dict)
-            test_gen = test_generator(test_flow)
+            test_gen = test_generator(test_flow, self.color_model)
             num_test_files = len(test_files)
 
             results = self.model.predict_generator(
@@ -200,8 +204,10 @@ def train(ctx):
         cprint("> ", end="")
         cprint("`train`", color="green", end="")
         cprint(" function")
+        DATASET_NAME = "eye_v5"
+        COLOR_MODEL = "rgb"  # rgb, hsv, ycbcr, gray
         MODEL_NAME = "unet_v7_multiclass"
-        MODEL_INFO = f"softmax-cce-lw_1_0-fold_{fold}"
+        MODEL_INFO = f"softmax-cce-lw_1_0-{COLOR_MODEL}-fold_{fold}"
         BATCH_NORMALIZATION = True
         LEARNING_RATE = "1e_4"
         EXPERIMENT_NAME = (
@@ -212,7 +218,7 @@ def train(ctx):
         EPOCH_START = 0
         EPOCH_END = 5000
         MODEL_PERIOD = 1
-        INPUT_SIZE = (256, 256, 3 + 3 + 2)
+        INPUT_SIZE = (256, 256, 3)
         TARGET_SIZE = (256, 256)
         NUM_CLASSES = 3
         SAVE_EACH_LAYER = False
@@ -228,7 +234,7 @@ def train(ctx):
         validation_labels_set_dir = os.path.join(validation_set_dir, "labels")
         test_set_dir = os.path.join(dataset_path, TEST_DIR_NAME)
         predicted_set_dir = os.path.join(
-            dataset_path, f"{TEST_DIR_NAME}-predicted"
+            dataset_path, f"{TEST_DIR_NAME}-predicted-{COLOR_MODEL}"
         )
         training_log_file = os.path.join(dataset_path, "training.csv")
         training_time_log_file = os.path.join(dataset_path, "training_time.csv")
@@ -260,11 +266,14 @@ def train(ctx):
                 f.write(f"TRAIN_BATCH_SIZE={dataset.train_batch_size}\n")
                 f.write(f"VALIDATION_BATCH_SIZE={dataset.validation_batch_size}\n")
                 f.write(f"TRAIN_STEPS_PER_EPOCH={dataset.train_steps_per_epoch}\n")
-                f.write(f"VALIDATION_STEPS_PER_EPOCH={dataset.validation_steps_per_epoch}\n")
+                f.write(
+                    f"VALIDATION_STEPS_PER_EPOCH={dataset.validation_steps_per_epoch}\n"
+                )
                 f.write(f"LEARNING_RATE={LEARNING_RATE}\n")
                 f.write(f"INPUT_SIZE={INPUT_SIZE}\n")
                 f.write(f"TARGET_SIZE={TARGET_SIZE}\n")
                 f.write(f"NUM_CLASSES={NUM_CLASSES}\n")
+                f.write(f"COLOR_MODEL={COLOR_MODEL}\n")
                 f.write(f"SAVE_EACH_LAYER={SAVE_EACH_LAYER}\n")
                 f.write(f"=======================\n")
 
@@ -311,21 +320,25 @@ def train(ctx):
             batch_size=dataset.train_batch_size,
             train_path=training_set_dir,
             aug_dict=data_gen_args,
+            image_color=COLOR_MODEL,
+            mask_color=COLOR_MODEL,
             save_to_dir=None,
             target_size=TARGET_SIZE,
         )
         train_flow = get_train_data(**train_data_dict)
-        train_gen = train_generator(train_flow)
+        train_gen = train_generator(train_flow, COLOR_MODEL)
 
         validation_data_dict = dict(
             batch_size=dataset.validation_batch_size,
             train_path=validation_set_dir,
+            image_color=COLOR_MODEL,
+            mask_color=COLOR_MODEL,
             save_to_dir=None,
             target_size=TARGET_SIZE,
             shuffle=False,
         )
         validation_flow = get_train_data(**validation_data_dict)
-        validation_gen = train_generator(validation_flow)
+        validation_gen = train_generator(validation_flow, COLOR_MODEL)
 
         # train the model
         #  new_weights_name = '{epoch:08d}'
@@ -336,13 +349,14 @@ def train(ctx):
             filepath=new_weights_file,
             monitor="val_acc",
             mode="auto",
-            verbose=1,
             save_best_only=True,
+            verbose=1,
             save_weights_only=True,
             period=MODEL_PERIOD,
         )
         # predict_output = PredictOutput(
         #     test_set_dir,
+        #     COLOR_MODEL,
         #     weights_dir,
         #     TARGET_SIZE,
         #     NUM_CLASSES,
@@ -389,13 +403,6 @@ def train(ctx):
         ctx.invoke(plot, experiment_name=EXPERIMENT_NAME)
 
 
-def diff_iris_area(y_true, y_pred):
-    area_true = K.cast(K.sum(y_true, axis=[1, 2]), "float32")
-    area_pred = K.sum(y_pred, axis=[1, 2])
-    normalized_diff = (area_true - area_pred) / area_true
-    return K.mean(K.square(normalized_diff), axis=0)
-
-
 def create_model(
     pretrained_weights=None,
     input_size=(),
@@ -406,17 +413,17 @@ def create_model(
 ):
     inputs = Input(input_size)
     conv1 = Conv2D(
-        48, 3, activation="relu", padding="same", kernel_initializer="he_normal"
+        32, 3, activation="relu", padding="same", kernel_initializer="he_normal"
     )(inputs)
     conv1 = Conv2D(
-        48, 3, activation="relu", padding="same", kernel_initializer="he_normal"
+        32, 3, activation="relu", padding="same", kernel_initializer="he_normal"
     )(conv1)
     pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
     conv2 = Conv2D(
-        96, 3, activation="relu", padding="same", kernel_initializer="he_normal"
+        64, 3, activation="relu", padding="same", kernel_initializer="he_normal"
     )(pool1)
     conv2 = Conv2D(
-        96, 3, activation="relu", padding="same", kernel_initializer="he_normal"
+        64, 3, activation="relu", padding="same", kernel_initializer="he_normal"
     )(conv2)
     pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
     conv3 = Conv2D(
@@ -466,25 +473,25 @@ def create_model(
     )(conv7)
 
     up8 = Conv2D(
-        96, 2, activation="relu", padding="same", kernel_initializer="he_normal"
+        64, 2, activation="relu", padding="same", kernel_initializer="he_normal"
     )(UpSampling2D(size=(2, 2))(conv7))
     merge8 = Concatenate(axis=3)([conv2, up8])
     conv8 = Conv2D(
-        96, 3, activation="relu", padding="same", kernel_initializer="he_normal"
+        64, 3, activation="relu", padding="same", kernel_initializer="he_normal"
     )(merge8)
     conv8 = Conv2D(
-        96, 3, activation="relu", padding="same", kernel_initializer="he_normal"
+        64, 3, activation="relu", padding="same", kernel_initializer="he_normal"
     )(conv8)
 
     up9 = Conv2D(
-        48, 2, activation="relu", padding="same", kernel_initializer="he_normal"
+        32, 2, activation="relu", padding="same", kernel_initializer="he_normal"
     )(UpSampling2D(size=(2, 2))(conv8))
     merge9 = Concatenate(axis=3)([conv1, up9])
     conv9 = Conv2D(
-        48, 3, activation="relu", padding="same", kernel_initializer="he_normal"
+        32, 3, activation="relu", padding="same", kernel_initializer="he_normal"
     )(merge9)
     conv9 = Conv2D(
-        48, 3, activation="relu", padding="same", kernel_initializer="he_normal"
+        32, 3, activation="relu", padding="same", kernel_initializer="he_normal"
     )(conv9)
     conv9 = Conv2D(
         2, 3, activation="relu", padding="same", kernel_initializer="he_normal"
@@ -508,36 +515,29 @@ def create_model(
     return model
 
 
-def preprocess_image_input(img1, img2):
+def preprocess_image_input(img, color_model):
     """preprocess input using image
        e.g., add feature layers, such as canny and gradient
 
        Normalization process must be done here after using image to calculate other features
     
     Arguments:
-        img1 {3D array} -- size = (x, y, channels)
-        img2 {3D array} -- size = (x, y, channels)
+        img {3D array} -- size = (x, y, channels)
+        color_model {string} -- color model of image (e.g., rgb and hsv)
     
     Returns:
         3D array -- preprocessed image
     """
     # create a duplicate object of image
-    gradients = img1.copy()
-    # add sobel feature layers
-    gradients = add_sobel_filters(img1, "hsv", gradients)
-    # normalize the values of gradient x and y
-    gradients = gradients[:,:, 3:5]
-    max_absolute_gradient_value = max(gradients.min(), gradients.max(), key=abs)
-    gradients /= max_absolute_gradient_value
+    processed_img = copy.deepcopy(img)
 
     # normalize the values of image to be in range [0, 1]
-    # normalize V layer
-    img1[:, :, 0:3] /= 255.0
-    # normalize RGB layers => 0:3 = 0,1,2
-    img2[:, :, 2] /= 255.0
-
-    # combine all layers
-    processed_img = np.concatenate((img1, img2, gradients), axis=-1)
+    if color_model == "hsv":
+        # normalize V layer
+        processed_img[:, :, 2] /= 255.0
+    if color_model == "rgb":
+        # normalize RGB layers => 0:3 = 0,1,2
+        processed_img[:, :, 0:3] /= 255.0
     return processed_img
 
 
@@ -547,11 +547,13 @@ def preprocess_mask_input(mask):
     return mask
 
 
-def preprocess_images_in_batch(img1_batch, img2_batch):
+def preprocess_images_in_batch(
+    img_batch, img_color_model
+):
     processed_input_list = []
-    for img1, img2 in zip(img1_batch, img2_batch):
-        processed_input = preprocess_image_input(img1, img2)
-        processed_input_list.append(processed_input)
+    for img in img_batch:
+        processed_img = preprocess_image_input(img, img_color_model)
+        processed_input_list.append(processed_img)
     processed_input_array = np.array(processed_input_list)
     return processed_input_array
 
@@ -562,6 +564,8 @@ def get_train_data(
     aug_dict=dict(),
     image_folder="images",
     mask_folder="labels",
+    image_color="rgb",
+    mask_color="rgb",
     image_save_prefix="image",
     mask_save_prefix="mask",
     save_to_dir=None,
@@ -569,33 +573,19 @@ def get_train_data(
     seed=1,
     shuffle=True,
 ):
-    image1_aug_dict = copy.deepcopy(aug_dict)
-    image1_aug_dict["preprocessing_function"] = get_color_convertion_function("rgb")
-    image1_datagen = ImageDataGenerator(**image1_aug_dict)
-
-    image2_aug_dict = copy.deepcopy(aug_dict)
-    image2_aug_dict["preprocessing_function"] = get_color_convertion_function("hsv")
-    image2_datagen = ImageDataGenerator(**image2_aug_dict)
-
-    mask_datagen = ImageDataGenerator(**aug_dict)
-
-    image1_flow = image1_datagen.flow_from_directory(
-        train_path,
-        classes=[image_folder],
-        class_mode=None,
-        color_mode="rgb",
-        target_size=target_size,
-        batch_size=batch_size,
-        save_to_dir=save_to_dir,
-        save_prefix=image_save_prefix,
-        seed=seed,
-        shuffle=shuffle,
+    image_aug_dict = copy.deepcopy(aug_dict)
+    image_aug_dict["preprocessing_function"] = get_color_convertion_function(
+        image_color
     )
-    image2_flow = image2_datagen.flow_from_directory(
+    image_datagen = ImageDataGenerator(**image_aug_dict)
+    mask_datagen = ImageDataGenerator(**aug_dict)
+    image_color_mode = "grayscale" if image_color == "gray" else "rgb"
+    mask_color_mode = "grayscale" if mask_color == "gray" else "rgb"
+    image_flow = image_datagen.flow_from_directory(
         train_path,
         classes=[image_folder],
         class_mode=None,
-        color_mode="rgb",
+        color_mode=image_color_mode,
         target_size=target_size,
         batch_size=batch_size,
         save_to_dir=save_to_dir,
@@ -607,7 +597,7 @@ def get_train_data(
         train_path,
         classes=[mask_folder],
         class_mode=None,
-        color_mode="rgb",
+        color_mode=mask_color_mode,
         target_size=target_size,
         batch_size=batch_size,
         save_to_dir=save_to_dir,
@@ -615,51 +605,46 @@ def get_train_data(
         seed=seed,
         shuffle=shuffle,
     )
-    return zip(image1_flow, image2_flow, mask_flow)
+    return zip(image_flow, mask_flow)
 
 
 def get_test_data(
-    test_path, image_folder="images", target_size=(256, 256), seed=1
+    test_path,
+    image_folder="images",
+    target_size=(256, 256),
+    image_color="rgb",
+    seed=1,
 ):
-    color_convertion_function1 = get_color_convertion_function("rgb")
-    image1_datagen = ImageDataGenerator(preprocessing_function=color_convertion_function1)
-
-    color_convertion_function2 = get_color_convertion_function("hsv")
-    image2_datagen = ImageDataGenerator(preprocessing_function=color_convertion_function2)
-
-    image1_flow = image1_datagen.flow_from_directory(
+    color_convertion_function = get_color_convertion_function(image_color)
+    test_datagen = ImageDataGenerator(preprocessing_function=color_convertion_function)
+    image_color_mode = "grayscale" if image_color == "gray" else "rgb"
+    test_flow = test_datagen.flow_from_directory(
         test_path,
         classes=[image_folder],
         class_mode=None,
-        color_mode="rgb",
+        color_mode=image_color_mode,
         target_size=target_size,
         batch_size=1,
         shuffle=False,
         seed=seed,
     )
-    image2_flow = image2_datagen.flow_from_directory(
-        test_path,
-        classes=[image_folder],
-        class_mode=None,
-        color_mode="rgb",
-        target_size=target_size,
-        batch_size=1,
-        shuffle=False,
-        seed=seed,
-    )
-    return zip(image1_flow, image2_flow), image1_flow.filenames
+    return test_flow, test_flow.filenames
 
 
-def train_generator(image_mask_pair_flow):
-    for (img1_batch, img2_batch, mask_batch) in image_mask_pair_flow:
-        processed_img_array = preprocess_images_in_batch(img1_batch, img2_batch)
+def train_generator(image_mask_pair_flow, image_color_model):
+    for (img_batch, mask_batch) in image_mask_pair_flow:
+        processed_img_array = preprocess_images_in_batch(
+            img_batch, image_color_model
+        )
         mask = preprocess_mask_input(mask_batch)
         yield ([processed_img_array], [mask])
 
 
-def test_generator(test_flow):
-    for (img1_batch, img2_batch) in test_flow:
-        processed_img_array = preprocess_images_in_batch(img1_batch, img2_batch)
+def test_generator(test_flow, image_color_model):
+    for img_batch in test_flow:
+        processed_img_array = preprocess_images_in_batch(
+            img_batch, image_color_model
+        )
         yield [processed_img_array]
 
 
@@ -734,10 +719,8 @@ def plot(experiment_name):
     if not os.path.exists(graphs_dir):
         os.makedirs(graphs_dir)
 
-    output1_acc_file = os.path.join(graphs_dir, "output1_acc.png")
-    # output_iris_acc_file = os.path.join(graphs_dir, "output_iris_acc.png")
-    output1_loss_file = os.path.join(graphs_dir, "output1_loss.png")
-    # output_iris_loss_file = os.path.join(graphs_dir, "output_iris_loss.png")
+    acc_file = os.path.join(graphs_dir, "acc.png")
+    loss_file = os.path.join(graphs_dir, "loss.png")
 
     history_data = pd.read_csv(training_log_file)
     print(history_data.columns)
@@ -750,9 +733,9 @@ def plot(experiment_name):
         history_data["val_acc"],
         "Accuracy",
         "Epoch",
-        f"{experiment_name} - Output 1 Model Accuracy",
+        f"{experiment_name} - Output Model Accuracy",
         ["Train Accuracy", "Validation Accuracy"],
-        output1_acc_file,
+        acc_file,
     )
     plot_graph(
         2,
@@ -761,10 +744,11 @@ def plot(experiment_name):
         history_data["val_loss"],
         "Loss",
         "Epoch",
-        f"{experiment_name} - Output 1 Model Loss (cce)",
+        f"{experiment_name} - Output Model Loss (cce)",
         ["Train Loss", "Validation Loss"],
-        output1_loss_file,
+        loss_file,
     )
+
     # immediately show plotted graphs
     #  plt.show()
     return
@@ -773,14 +757,21 @@ def plot(experiment_name):
 @cli.command()
 @click.argument("experiment_name")
 @click.argument("weight")
+@click.argument("color_model")
 @click.argument("batch_normalization")
 @click.argument("test_dir_name")
-def predict(experiment_name, weight, batch_normalization, test_dir_name):
+def predict(experiment_name, weight, color_model, batch_normalization, test_dir_name):
     cprint(f"> Running `predict` command on ", color="green", end="")
     cprint(f"{experiment_name}", color="green", attrs=["bold"], end=", ")
-    cprint(f"batch_normalization" if batch_normalization else "", color="grey", attrs=["bold"], end=", ")
+    cprint(f"{color_model}", color="green", attrs=["bold"], end=", ")
+    cprint(
+        f"batch_normalization" if batch_normalization else "",
+        color="grey",
+        attrs=["bold"],
+        end=", ",
+    )
     cprint(f" experiment", color="green")
-    INPUT_SIZE = (256, 256, 3 + 3 + 2)
+    INPUT_SIZE = (256, 256, 3)
     TARGET_SIZE = (256, 256)
     NUM_CLASSES = 3
     SAVE_EACH_LAYER = False
@@ -813,6 +804,7 @@ def predict(experiment_name, weight, batch_normalization, test_dir_name):
             f.write(f"INPUT_SIZE={INPUT_SIZE}\n")
             f.write(f"TARGET_SIZE={TARGET_SIZE}\n")
             f.write(f"NUM_CLASSES={NUM_CLASSES}\n")
+            f.write(f"COLOR_MODEL={color_model}\n")
             f.write(f"SAVE_EACH_LAYER={SAVE_EACH_LAYER}\n")
             f.write(f"=======================\n")
 
@@ -827,16 +819,15 @@ def predict(experiment_name, weight, batch_normalization, test_dir_name):
         input_size=INPUT_SIZE,
         num_classes=NUM_CLASSES,
         batch_normalization=batch_normalization,
-        is_summary=False
+        is_summary=False,
     )
 
     # test the model
     test_data_dict = dict(
-        test_path=test_set_dir,
-        target_size=TARGET_SIZE,
+        test_path=test_set_dir, target_size=TARGET_SIZE, image_color=color_model
     )
     test_flow, test_files = get_test_data(**test_data_dict)
-    test_gen = test_generator(test_flow)
+    test_gen = test_generator(test_flow, color_model)
 
     predict_steps = len(test_files)
     results = model.predict_generator(
@@ -858,6 +849,7 @@ def predict(experiment_name, weight, batch_normalization, test_dir_name):
     )
     cprint(f"{predicted_set_dirname}", color="green", attrs=["bold"])
 
+
 @cli.command()
 @click.pass_context
 def evaluate(ctx):
@@ -865,11 +857,12 @@ def evaluate(ctx):
     dataset = Dataset(DATASET_NAME)
     MODEL_NAME = "unet_v7_multiclass"
     MODEL_INFO = "softmax-cce-lw_1_0"
+    COLOR_MODEL = "hsv"  # rgb, hsv, ycbcr, gray
     BATCH_NORMALIZATION = True
     LEARNING_RATE = "1e_4"
     batch_size = dataset.validation_batch_size
     evaluate_steps = dataset.validation_steps_per_epoch
-    INPUT_SIZE = (256, 256, 8)
+    INPUT_SIZE = (256, 256, 3)
     TARGET_SIZE = (256, 256)
     NUM_CLASSES = 3
     fold_list = range(1, 4 + 1)
@@ -880,9 +873,11 @@ def evaluate(ctx):
         + MODEL_NAME
         + "-"
         + MODEL_INFO
+        + "-"
+        + COLOR_MODEL
         + "-fold_{0}"
         + "-lr_"
-        + LEARNING_RATE
+        + "1e_4"
         + batch_normalization_info
     )
     training_validation_evaluation = evaluate_training_and_validation(
@@ -933,15 +928,17 @@ def evaluate(ctx):
         test_data_dict = dict(
             batch_size=batch_size,
             train_path=test_set_dir,
+            image_color=COLOR_MODEL,
+            mask_color=COLOR_MODEL,
             save_to_dir=None,
             target_size=TARGET_SIZE,
             shuffle=False,
         )
         test_flow = get_train_data(**test_data_dict)
-        test_gen = train_generator(test_flow)
+        test_gen = train_generator(test_flow, COLOR_MODEL)
         groundtruths = []
         step = 0
-        for (_,), (mask_batch, _) in test_gen:
+        for (_,), (mask_batch,) in test_gen:
             for mask in mask_batch:
                 groundtruths.append(mask)
             step += 1
@@ -971,23 +968,26 @@ def evaluate(ctx):
             )
 
         test_flow = get_train_data(**test_data_dict)
-        test_gen = train_generator(test_flow)
+        test_gen = train_generator(test_flow, COLOR_MODEL)
         evaluation = model.evaluate_generator(
             generator=test_gen, steps=evaluate_steps, verbose=1
         )
-        # print(model.metrics_names) # [3] output1_acc
+        # print(model.metrics_names) # [1] acc
         print(evaluation)
-        training_validation_evaluation[fold - 1]["test"] = evaluation[3]
+        training_validation_evaluation[fold - 1]["test"] = evaluation[1]
 
     for p_class in classes:
         precision = metrics.precision_score(
-            folds_label_image_pairs[p_class]["label"], folds_label_image_pairs[p_class]["image"]
+            folds_label_image_pairs[p_class]["label"],
+            folds_label_image_pairs[p_class]["image"],
         )
         recall = metrics.recall_score(
-            folds_label_image_pairs[p_class]["label"], folds_label_image_pairs[p_class]["image"]
+            folds_label_image_pairs[p_class]["label"],
+            folds_label_image_pairs[p_class]["image"],
         )
         f1 = metrics.f1_score(
-            folds_label_image_pairs[p_class]["label"], folds_label_image_pairs[p_class]["image"]
+            folds_label_image_pairs[p_class]["label"],
+            folds_label_image_pairs[p_class]["image"],
         )
         output_summary_evaluation.append(precision)
         output_summary_evaluation.append(recall)
@@ -995,9 +995,15 @@ def evaluate(ctx):
 
     ordered_training_validation_evaluation = []
     for fold_evaluation in training_validation_evaluation:
-        ordered_training_validation_evaluation.append(format_accuracy(fold_evaluation["training"]))
-        ordered_training_validation_evaluation.append(format_accuracy(fold_evaluation["validation"]))
-        ordered_training_validation_evaluation.append(format_accuracy(fold_evaluation["test"]))
+        ordered_training_validation_evaluation.append(
+            format_accuracy(fold_evaluation["training"])
+        )
+        ordered_training_validation_evaluation.append(
+            format_accuracy(fold_evaluation["validation"])
+        )
+        ordered_training_validation_evaluation.append(
+            format_accuracy(fold_evaluation["test"])
+        )
         ordered_training_validation_evaluation.append(fold_evaluation["epoch"])
 
     output_summary_evaluation = np.concatenate(
@@ -1023,30 +1029,38 @@ def evaluate_training_and_validation(experiment_name_template, fold_list):
         training_log_file = os.path.join(experiment_name_dir, "training.csv")
 
         training_log = pd.read_csv(training_log_file)
-        output1_acc = training_log["acc"]
-        val_output1_acc = training_log["val_acc"]
+        acc = training_log["acc"]
+        acc = [
+            a if ((i+1) % 100 == 0) or ((i+1) >= 7000 and (i+1) <= 7486) else 0.0
+            for i, a in enumerate(acc)
+        ]
+        val_acc = training_log["val_acc"]
+        val_acc = [
+            a if ((i+1) % 100 == 0) or ((i+1) >= 7000 and (i+1) <= 7486) else 0.0
+            for i, a in enumerate(val_acc)
+        ]
 
         def find_best_accuracy(accuracy_values):
-            arg_max_output1_acc = np.argmax(np.array(accuracy_values))
-            max_output1_acc = accuracy_values[arg_max_output1_acc]
-            return max_output1_acc, arg_max_output1_acc
+            arg_max_acc = np.argmax(np.array(accuracy_values))
+            max_acc = accuracy_values[arg_max_acc]
+            return max_acc, arg_max_acc
 
-        max_val_output1_acc, arg_max_val_output1_acc = find_best_accuracy(
-            val_output1_acc
+        max_val_acc, arg_max_val_acc = find_best_accuracy(
+            val_acc
         )
-        max_val_output1_acc_epoch = arg_max_val_output1_acc + 1
-        max_output1_acc = output1_acc[arg_max_val_output1_acc]
+        max_val_acc_epoch = arg_max_val_acc + 1
+        max_acc = acc[arg_max_val_acc]
         output_values.append(
             {
-                "training": max_output1_acc,
-                "validation": max_val_output1_acc,
-                "epoch": max_val_output1_acc_epoch,
+                "training": max_acc,
+                "validation": max_val_acc,
+                "epoch": max_val_acc_epoch,
             }
         )
 
-        print(f"fold {fold}, max accuracy @ epoch # {max_val_output1_acc_epoch}")
-        print(f"max training accuracy = {format_accuracy(max_output1_acc)}")
-        print(f"max validation accuracy = {format_accuracy(max_val_output1_acc)}")
+        print(f"fold {fold}, max accuracy @ epoch # {max_val_acc_epoch}")
+        print(f"max training accuracy = {format_accuracy(max_acc)}")
+        print(f"max validation accuracy = {format_accuracy(max_val_acc)}")
 
     return output_values
 
@@ -1058,7 +1072,7 @@ def evaluate_classes(images, groundtruths):
         label_image_pairs[p_class] = {"label": np.empty(0), "image": np.empty(0)}
     for image, label in zip(images, groundtruths):
         if image.shape != label.shape:
-            print("Image's shape doesn't match with label's shape")
+            print(f"Image's shape ({image.shape}) doesn't match with label's shape ({label.shape})")
             exit(1)
         for x in range(0, image.shape[0]):
             for y in range(0, image.shape[1]):
@@ -1083,29 +1097,26 @@ def evaluate_classes(images, groundtruths):
         flatten_label = {}
         flatten_image = {}
 
-        flatten_label["iris"], flatten_label["sclera"], flatten_label["bg"] = flatten_class_layers(label)
-        flatten_image["iris"], flatten_image["sclera"], flatten_image["bg"] = flatten_class_layers(image)
+        flatten_label["iris"], flatten_label["sclera"], flatten_label[
+            "bg"
+        ] = flatten_class_layers(label)
+        flatten_image["iris"], flatten_image["sclera"], flatten_image[
+            "bg"
+        ] = flatten_class_layers(image)
 
         for p_class in classes:
             label_image_pairs[p_class]["label"] = np.concatenate(
-                (
-                    label_image_pairs[p_class]["label"],
-                    flatten_label[p_class],
-                ),
-                axis=None,
+                (label_image_pairs[p_class]["label"], flatten_label[p_class]), axis=None
             )
             label_image_pairs[p_class]["image"] = np.concatenate(
-                (
-                    label_image_pairs[p_class]["image"],
-                    flatten_image[p_class],
-                ),
-                axis=None,
+                (label_image_pairs[p_class]["image"], flatten_image[p_class]), axis=None
             )
     return label_image_pairs
 
 
 def format_accuracy(number):
     return format(number * 100, "3.2f")
+
 
 if __name__ == "__main__":
     cli()
